@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MRP Materiales — Berries Paradise</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0b1220;color:#e2e8f0;font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;min-height:100vh}
+/* ─ HEADER ─ */
+.hdr{background:linear-gradient(90deg,#070e1a,#0d1f35);padding:9px 20px;border-bottom:2px solid #1e3d5c;display:flex;align-items:center;justify-content:space-between}
+.hdr-logo{display:flex;align-items:center;gap:10px}
+.hdr-icon{font-size:1.4rem}
+.hdr-title{font-size:1rem;font-weight:800;color:#fff;letter-spacing:.3px}
+.hdr-sub{font-size:.67rem;color:#475569;margin-top:1px}
+.hdr-right{display:flex;align-items:center;gap:8px}
+.hdr-cnt{background:#1e3d5c;color:#60a5fa;border-radius:12px;padding:3px 10px;font-size:.72rem;font-weight:700}
+.hdr-wk{background:#e94560;color:#fff;border-radius:12px;padding:3px 12px;font-size:.78rem;font-weight:800;letter-spacing:.5px}
+/* ─ KPI BAR ─ */
+.kpi-bar{display:flex;gap:0;border-bottom:1px solid #1e3d5c}
+.kpi{flex:1;padding:14px 20px;border-right:1px solid #1e3d5c;text-align:center;position:relative}
+.kpi:last-child{border-right:none}
+.kpi-val{font-size:2rem;font-weight:900;line-height:1;letter-spacing:-1px}
+.kpi-lbl{font-size:.63rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
+.kpi-bar-line{position:absolute;bottom:0;left:0;right:0;height:3px}
+.kv-total .kpi-val{color:#60a5fa} .kv-total .kpi-bar-line{background:#60a5fa}
+.kv-corto .kpi-val{color:#f87171}  .kv-corto .kpi-bar-line{background:#f87171}
+.kv-glm .kpi-val{color:#fbbf24}    .kv-glm .kpi-bar-line{background:#fbbf24}
+.kv-cub .kpi-val{color:#34d399}    .kv-cub .kpi-bar-line{background:#34d399}
+.kv-alm .kpi-val{color:#a78bfa}    .kv-alm .kpi-bar-line{background:#a78bfa}
+/* ─ TABS ─ */
+.tab-bar{display:flex;background:#070e1a;padding:0 16px;border-bottom:1px solid #1e3d5c;overflow-x:auto}
+.tab{padding:9px 14px;cursor:pointer;font-size:.73rem;font-weight:700;color:#475569;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:5px}
+.tab:hover{color:#93c5fd;background:#0d1b2a}
+.tab.active{color:#60a5fa;border-bottom-color:#3b82f6;background:#0a1f35}
+/* ─ PANES ─ */
+.pane{display:none;padding:12px 16px 32px}
+.pane.active{display:block}
+/* ─ CARD ─ */
+.card{background:#111d2c;border:1px solid #1e3d5c;border-radius:8px;padding:12px;margin-bottom:10px}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px}
+.card-title{font-size:.7rem;font-weight:700;color:#93c5fd;text-transform:uppercase;letter-spacing:.6px}
+.card-sub{font-size:.63rem;color:#334155}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.row2-3{display:grid;grid-template-columns:1.6fr 1fr;gap:10px;margin-bottom:10px}
+/* ─ TABLES ─ */
+table{width:100%;border-collapse:collapse;font-size:.75rem}
+th{font-size:.62rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.4px;padding:6px 8px;border-bottom:1px solid #1e3d5c;text-align:left;white-space:nowrap;cursor:pointer;user-select:none;background:#0d1b2a;position:sticky;top:0;z-index:2}
+th:hover{color:#60a5fa}
+th.sorted-asc::after{content:' ↑';color:#60a5fa}
+th.sorted-desc::after{content:' ↓';color:#60a5fa}
+td{padding:5px 8px;border-bottom:1px solid #0a1628;color:#cbd5e1;vertical-align:middle;white-space:nowrap}
+tr:hover td{background:#0d1f32}
+tr.r-corto td{background:#0d1b2a} tr.r-corto:hover td{background:#0d1f32}
+tr.r-glm td{background:#0d1b2a}   tr.r-glm:hover td{background:#0d1f32}
+tr.r-traslado td{background:#0d1b2a} tr.r-traslado:hover td{background:#0d1f32}
+.tbl-wrap{overflow:auto;max-height:calc(100vh - 290px)}
+.tbl-wrap::-webkit-scrollbar{width:4px;height:4px}
+.tbl-wrap::-webkit-scrollbar-thumb{background:#1e3d5c;border-radius:2px}
+/* ─ BADGES ─ */
+.b-corto{background:#7f1d1d;color:#fca5a5;padding:2px 7px;border-radius:4px;font-size:.67rem;font-weight:700}
+.b-cubierto{background:#064e3b;color:#6ee7b7;padding:2px 7px;border-radius:4px;font-size:.67rem;font-weight:700}
+.b-glm{background:#451a03;color:#fcd34d;padding:2px 7px;border-radius:4px;font-size:.67rem;font-weight:700}
+.b-traslado{background:#2e1065;color:#c4b5fd;padding:2px 7px;border-radius:4px;font-size:.67rem;font-weight:700}
+.b-sinaccion{background:#1e293b;color:#64748b;padding:2px 7px;border-radius:4px;font-size:.67rem;font-weight:700}
+.b-singest{background:#1e293b;color:#94a3b8;padding:2px 7px;border-radius:4px;font-size:.65rem;font-weight:700}
+.b-transito{background:#1e3a5f;color:#60a5fa;padding:2px 7px;border-radius:4px;font-size:.65rem;font-weight:700}
+.b-recibido{background:#064e3b;color:#6ee7b7;padding:2px 7px;border-radius:4px;font-size:.65rem;font-weight:700}
+.cod-BX{color:#93c5fd;font-weight:700}
+.cod-CL{color:#6ee7b7;font-weight:700}
+.cod-PA{color:#fcd34d;font-weight:700}
+.cod-CV{color:#c4b5fd;font-weight:700}
+.pos{color:#34d399;font-weight:600}.neg{color:#f87171;font-weight:600}
+.alm{color:#fbbf24;font-weight:700}
+/* ─ CONTROLS ─ */
+.ctrl{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+input[type=text],input[type=date],select{background:#0d1b2a;border:1px solid #1e3d5c;border-radius:5px;color:#93c5fd;padding:5px 9px;font-size:.72rem;outline:none;transition:border .15s}
+input[type=text]:focus,input[type=date]:focus,select:focus{border-color:#3b82f6}
+input[type=text]::placeholder{color:#2d4060}
+.badge-n{background:#1e3d5c;color:#60a5fa;border-radius:10px;padding:2px 8px;font-size:.7rem;font-weight:700}
+/* ─ BTNS ─ */
+.btn{background:#1e3d5c;border:1px solid #2563a8;border-radius:5px;color:#60a5fa;padding:5px 11px;font-size:.72rem;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:background .2s;font-weight:600}
+.btn:hover{background:#2563a8;color:#fff}
+.btn-danger{background:#7f1d1d;border-color:#b91c1c;color:#fca5a5}
+.btn-danger:hover{background:#b91c1c;color:#fff}
+/* ─ ALERT BANNER ─ */
+.alert-banner{background:#0d2541;border:1px solid #1e5b8a;border-radius:6px;padding:8px 14px;margin-bottom:12px;font-size:.72rem;color:#93c5fd;line-height:1.7}
+.alert-banner strong{color:#60a5fa}
+/* ─ CHART HELPERS ─ */
+.ch-wrap{position:relative}
+/* ─ STAT ROW ─ */
+.stat-row{display:flex;gap:10px;margin-bottom:10px}
+.stat{flex:1;background:#0d1b2a;border:1px solid #1e3d5c;border-radius:7px;padding:12px;text-align:center}
+.stat-val{font-size:1.4rem;font-weight:800;line-height:1}
+.stat-lbl{font-size:.62rem;color:#475569;text-transform:uppercase;letter-spacing:.3px;margin-top:3px}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-logo">
+    <span class="hdr-icon">🫐</span>
+    <div>
+      <div class="hdr-title">MRP Materiales</div>
+      <div class="hdr-sub" id="genDate"></div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="hdr-cnt" id="hdrCnt"></div>
+    <div class="hdr-wk" id="hdrWk"></div>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-bar">
+  <div class="kpi kv-total"><div class="kpi-val" id="kTotal">—</div><div class="kpi-lbl">SKU × Almacén</div><div class="kpi-bar-line"></div></div>
+  <div class="kpi kv-corto"><div class="kpi-val" id="kCorto">—</div><div class="kpi-lbl">Cortos</div><div class="kpi-bar-line"></div></div>
+  <div class="kpi kv-glm"><div class="kpi-val" id="kGlm">—</div><div class="kpi-lbl">Requieren GLM</div><div class="kpi-bar-line"></div></div>
+  <div class="kpi kv-cub"><div class="kpi-val" id="kCub">—</div><div class="kpi-lbl">Cubiertos</div><div class="kpi-bar-line"></div></div>
+  <div class="kpi kv-alm"><div class="kpi-val" id="kAlm">—</div><div class="kpi-lbl">Almacenes</div><div class="kpi-bar-line"></div></div>
+</div>
+
+<!-- TABS -->
+<div class="tab-bar">
+  <div class="tab active" data-t="resumen">📊 Resumen</div>
+  <div class="tab" data-t="porAlm">🏭 Por Almacén</div>
+  <div class="tab" data-t="tabla">📋 Tabla MRP</div>
+  <div class="tab" data-t="demanda">📈 Demanda</div>
+  <div class="tab" data-t="glm">🚛 GLM</div>
+  <div class="tab" data-t="traslados">🔄 Traslados</div>
+  <div class="tab" data-t="compras">🛒 Compras</div>
+</div>
+
+<!-- ══════════════════════════════════ RESUMEN ══ -->
+<div id="resumen" class="pane active">
+  <div class="row2-3">
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">Decisión Externa — Distribución</div></div>
+      <div class="ch-wrap" style="height:260px"><canvas id="chDona"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">Inventario General por Almacén</div></div>
+      <div class="ch-wrap" style="height:260px"><canvas id="chInvAlm"></canvas></div>
+    </div>
+  </div>
+  <div class="row2">
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-title">Top 10 Cajas (BX) — Salidas</div>
+        <span class="card-sub" id="wkLabelBX"></span>
+      </div>
+      <div class="ch-wrap" style="height:260px"><canvas id="chTopBX"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-title">Top 10 Clamshell (CL/CV) — Salidas</div>
+        <span class="card-sub" id="wkLabelCL"></span>
+      </div>
+      <div class="ch-wrap" style="height:260px"><canvas id="chTopCL"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ POR ALMACÉN ══ -->
+<div id="porAlm" class="pane">
+  <div class="card">
+    <div class="card-hdr">
+      <div class="card-title">Salidas por Almacén — Movimientos por Fecha</div>
+      <span class="card-sub">(HISTÓRICO_MOVIMIENTOS_BP)</span>
+    </div>
+    <div class="ctrl">
+      <label style="color:#475569;font-size:.72rem">Desde:</label>
+      <input type="date" id="dDesde">
+      <label style="color:#475569;font-size:.72rem">Hasta:</label>
+      <input type="date" id="dHasta">
+      <button class="btn" onclick="applyMovsFilter()">Aplicar</button>
+      <button class="btn" onclick="resetMovsFilter()">Todo</button>
+      <label style="color:#475569;font-size:.72rem">Almacén:</label>
+      <select id="movsAlmSel" onchange="applyMovsFilter()"><option value="">Todos</option></select>
+    </div>
+    <div class="ch-wrap" style="height:300px"><canvas id="chMovsLine"></canvas></div>
+  </div>
+  <div class="row2">
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">Inventario General por Almacén</div></div>
+      <div class="ch-wrap" style="height:260px"><canvas id="chInvAlm2"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">Decisiones por Almacén</div></div>
+      <div class="ch-wrap" style="height:260px"><canvas id="chDecAlm"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ TABLA MRP ══ -->
+<div id="tabla" class="pane">
+  <div class="ctrl">
+    <input type="text" id="srch" placeholder="🔍  Buscar código, descripción, concat..." style="min-width:280px">
+    <select id="fAlm"><option value="">Todos los almacenes</option></select>
+    <select id="fDecExt">
+      <option value="">Todas las decisiones</option>
+      <option value="Corto">Corto</option>
+      <option value="Cubierto">Cubierto</option>
+      <option value="GLM">GLM</option>
+    </select>
+    <select id="fTipo">
+      <option value="">Todos los tipos</option>
+      <option value="BX">BX – Cajas</option>
+      <option value="CL">CL – Clamshell</option>
+      <option value="PA">PA – Pallets</option>
+      <option value="CV">CV – Charola</option>
+    </select>
+    <button class="btn" onclick="resetTabla()">↺ Limpiar</button>
+    <button class="btn" onclick="dlTabla()">📥 Excel</button>
+    <span class="badge-n" id="tblCount">—</span>
+    <span style="font-size:.65rem;color:#334155">↕ Doble clic en columna para ordenar</span>
+  </div>
+  <div class="tbl-wrap">
+    <table id="mrpTbl">
+      <thead><tr>
+        <th data-col="Concat">CONCAT</th>
+        <th data-col="Codigo">CODIGO</th>
+        <th data-col="Descripcion">DESCRIPCION</th>
+        <th data-col="Almacen">ALMACEN</th>
+        <th data-col="Qty 1.5wk" style="text-align:right">QTY 1.5WK</th>
+        <th data-col="Salidas" style="text-align:right">SALIDAS</th>
+        <th data-col="Delta" style="text-align:right">DELTA</th>
+        <th data-col="Inv General" style="text-align:right">INV GENERAL</th>
+        <th data-col="Delta2" style="text-align:right">DELTA2</th>
+        <th data-col="% Salidas" style="text-align:right">% SALIDAS</th>
+        <th data-col="% Inv Actual" style="text-align:right">% INV ACTUAL</th>
+        <th data-col="Qty Req GLM" style="text-align:right">QTY REQ GLM</th>
+        <th data-col="Inv Nacional" style="text-align:right">INV NACIONAL</th>
+        <th data-col="Six General" style="text-align:right">SIX GENERAL</th>
+        <th data-col="Sems Inv" style="text-align:right">SEMS INV</th>
+        <th data-col="Pallets" style="text-align:right">PALLETS</th>
+        <th data-col="Qty Tarimas" style="text-align:right">QTY TARIMAS</th>
+        <th data-col="Inv GLM" style="text-align:right">INV GLM</th>
+        <th data-col="Decision Interna">DECISION INT.</th>
+        <th data-col="Decision Externa">DECISION EXT.</th>
+      </tr></thead>
+      <tbody id="tBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ DEMANDA ══ -->
+<div id="demanda" class="pane">
+  <div class="ctrl" style="margin-bottom:14px">
+    <label style="color:#475569;font-size:.72rem">Semana (barra):</label>
+    <select id="demWkBar"></select>
+    <label style="color:#475569;font-size:.72rem">Rango tendencia — Desde:</label>
+    <select id="demWkFrom"></select>
+    <label style="color:#475569;font-size:.72rem">Hasta:</label>
+    <select id="demWkTo"></select>
+    <button class="btn" onclick="updateDemanda()">Actualizar</button>
+  </div>
+  <div class="row2-3" style="margin-bottom:10px">
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-title">Salidas por Almacén —</div>
+        <span class="card-sub" id="demBarLabel"></span>
+      </div>
+      <div class="ch-wrap" style="height:280px"><canvas id="chDemBar"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-title">Tendencia Semanal —</div>
+        <span class="card-sub" id="demLineLabel"></span>
+        <span class="card-sub">(HISTÓRICO_MOVIMIENTOS_BP)</span>
+      </div>
+      <div class="ch-wrap" style="height:280px"><canvas id="chDemLine"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">Comparativo Semanal por Almacén (Apilado)</div></div>
+    <div class="ch-wrap" style="height:280px"><canvas id="chDemStack"></canvas></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ GLM ══ -->
+<div id="glm" class="pane">
+  <div class="alert-banner">📁 Actualiza <strong>OC, Folio SAP, Estatus Carga, Dia Carga, Estatus Almacén</strong> en <strong>Datos_MRP_BP.xlsx → GLM</strong>. Luego corre <strong>ACTUALIZAR_MRP.bat</strong>.</div>
+  <div class="stat-row" id="glmStats"></div>
+  <div class="ctrl">
+    <input type="text" id="glmSrch" placeholder="🔍  Buscar código, descripción, almacén..." style="min-width:240px">
+    <select id="glmAlm"><option value="">Todos los almacenes</option></select>
+    <button class="btn" onclick="resetGlm()">↺ Limpiar</button>
+    <button class="btn" onclick="dlGlm()">📥 Excel</button>
+    <span class="badge-n" id="glmCount">—</span>
+  </div>
+  <div class="tbl-wrap" style="max-height:calc(100vh - 280px)">
+    <table id="glmTbl">
+      <thead><tr>
+        <th data-col="Codigo">CODIGO</th>
+        <th data-col="Concat">CONCAT</th>
+        <th data-col="Descripcion">DESCRIPCION</th>
+        <th data-col="Almacen">ALMACÉN</th>
+        <th data-col="Inv General" style="text-align:right">INV GENERAL</th>
+        <th data-col="Qty Req GLM" style="text-align:right">QTY REQ GLM</th>
+        <th data-col="Sems Inv" style="text-align:right">SEMS INV</th>
+        <th data-col="Qty 1.5wk" style="text-align:right">QTY 1.5WK</th>
+        <th data-col="Delta2" style="text-align:right">DELTA2</th>
+        <th data-col="% Inv Actual" style="text-align:right">% INV ACTUAL</th>
+        <th data-col="OC">OC</th>
+        <th data-col="Folio SAP">FOLIO SAP</th>
+        <th data-col="Estatus Carga">ESTATUS CARGA</th>
+        <th data-col="Dia Carga">DIA CARGA</th>
+        <th data-col="Estatus Almacen">ESTATUS ALMACÉN</th>
+      </tr></thead>
+      <tbody id="glmBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ TRASLADOS ══ -->
+<div id="traslados" class="pane">
+  <div class="alert-banner">🔄 Registra <strong>Almacén Fuente, Estatus y Comentarios</strong> en <strong>Datos_MRP_BP.xlsx → Traslados</strong>. Luego corre <strong>ACTUALIZAR_MRP.bat</strong>.</div>
+  <div class="stat-row" id="trasladosStats"></div>
+  <div class="ctrl">
+    <input type="text" id="trasSrch" placeholder="🔍  Buscar código, descripción, almacén...">
+    <select id="trasAlm"><option value="">Todos los almacenes</option></select>
+    <select id="trasEst">
+      <option value="">Todos los estatus</option>
+      <option value="Pendiente">Pendiente</option>
+      <option value="En proceso">En proceso</option>
+      <option value="Completado">Completado</option>
+    </select>
+    <button class="btn" onclick="resetTraslados()">↺ Limpiar</button>
+    <button class="btn" onclick="dlTraslados()">📥 Excel</button>
+    <span class="badge-n" id="trasCount">—</span>
+  </div>
+  <div class="tbl-wrap" style="max-height:calc(100vh - 300px)">
+    <table id="trasTbl">
+      <thead><tr>
+        <th data-col="Codigo">CODIGO</th>
+        <th data-col="Concat">CONCAT</th>
+        <th data-col="Descripcion">DESCRIPCION</th>
+        <th data-col="Almacen">ALMACÉN DESTINO</th>
+        <th data-col="Inv General" style="text-align:right">INV GENERAL</th>
+        <th data-col="Inv Nacional" style="text-align:right">INV NACIONAL</th>
+        <th data-col="Sems Inv" style="text-align:right">SEMS INV</th>
+        <th data-col="Qty 1.5wk" style="text-align:right">QTY 1.5WK</th>
+        <th data-col="Delta2" style="text-align:right">DELTA2</th>
+        <th data-col="% Inv Actual" style="text-align:right">% INV ACTUAL</th>
+        <th data-col="Decision Externa">DEC. EXTERNA</th>
+        <th data-col="Almacen Fuente">ALMACÉN FUENTE</th>
+        <th data-col="Estatus">ESTATUS</th>
+        <th data-col="Comentarios">COMENTARIOS</th>
+      </tr></thead>
+      <tbody id="trasBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ COMPRAS ══ -->
+<div id="compras" class="pane">
+  <div class="alert-banner">📋 Registra <strong>Fecha Llegada, Estatus y Comentarios</strong> en <strong>Datos_MRP_BP.xlsx → Compras</strong>. Corre <strong>ACTUALIZAR_MRP.bat</strong> para reflejar cambios.</div>
+  <div class="stat-row" id="comprasStats"></div>
+  <div class="ctrl">
+    <input type="text" id="compraSrch" placeholder="🔍  Buscar...">
+    <select id="compraAlm"><option value="">Todos los almacenes</option></select>
+    <select id="compraEst">
+      <option value="">Todos los estatus</option>
+      <option value="Sin gestión">Sin gestión</option>
+      <option value="En tránsito">En tránsito</option>
+      <option value="Recibido">Recibido</option>
+    </select>
+    <button class="btn" onclick="resetCompras()">↺ Limpiar</button>
+    <button class="btn btn-danger" onclick="dlCompras()">📥 Excel Cortos</button>
+    <span class="badge-n" id="compraCount">—</span>
+  </div>
+  <div class="tbl-wrap" style="max-height:calc(100vh - 310px)">
+    <table id="compraTbl">
+      <thead><tr>
+        <th data-col="Codigo">CODIGO</th>
+        <th data-col="Descripcion">DESCRIPCION</th>
+        <th data-col="Almacen">ALMACEN</th>
+        <th data-col="Inv General" style="text-align:right">INV GENERAL</th>
+        <th data-col="Sems Inv" style="text-align:right">SEMS INV</th>
+        <th data-col="Qty 1.5wk" style="text-align:right">QTY REQ 1.5WK</th>
+        <th data-col="Fecha Llegada">FECHA LLEGADA</th>
+        <th data-col="Estatus">ESTATUS</th>
+        <th data-col="Comentarios">COMENTARIOS</th>
+      </tr></thead>
+      <tbody id="compraBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const D = {"gen_date": "19/03/2026 23:24", "wk": "WK12", "n_total": 119, "n_corto": 20, "n_cubierto": 73, "n_glm": 26, "n_alm": 8, "wk12": [{"Concat": "BX0003MPER", "Codigo": "BX0003", "Descripcion": "CAJA DE CARTON BLU 12X4.4OZ BP", "Almacen": "MPER", "Qty 1.5wk": 6400, "Salidas": 3000, "Delta": 3400, "Inv General": 3067, "Delta2": 333, "% Salidas": 0.46875, "% Inv Actual": 0.479219, "Qty Req GLM": 1400, "Inv Nacional": 35741, "Six General": 10460, "Sems Inv": 3.416922, "Pallets": 0.1665, "Qty Tarimas": 2000, "Inv GLM": 14000, "Decision Interna": "Traslado", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "BX0006MMAZ", "Codigo": "BX0006", "Descripcion": "CAJA DE CARTON BLU 12X1PT BP", "Almacen": "MMAZ", "Qty 1.5wk": 2016, "Salidas": 1500, "Delta": 516, "Inv General": 2050, "Delta2": -1534, "% Salidas": 0.744048, "% Inv Actual": 1.016865, "Qty Req GLM": 0, "Inv Nacional": 51168, "Six General": 121172, "Sems Inv": 0.422276, "Pallets": -1.534, "Qty Tarimas": 1000, "Inv GLM": 33792, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": "MTAL-MMAZ"}, {"Concat": "BX0048MMAZ", "Codigo": "BX0048", "Descripcion": "CAJA DE CARTON BLU 18OZ BLU RESERVE NBP", "Almacen": "MMAZ", "Qty 1.5wk": 2160, "Salidas": 700, "Delta": 1460, "Inv General": 3270, "Delta2": -1810, "% Salidas": 0.324074, "% Inv Actual": 1.513889, "Qty Req GLM": 0, "Inv Nacional": 8279, "Six General": 7200, "Sems Inv": 1.149861, "Pallets": -1.81, "Qty Tarimas": 1000, "Inv GLM": 11358, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0314MMAZ", "Codigo": "CL0314", "Descripcion": "CLAMSHELL BLU 9.8OZ JUMBO NBP CV", "Almacen": "MMAZ", "Qty 1.5wk": 24192, "Salidas": 4000, "Delta": 20192, "Inv General": 26800, "Delta2": -6608, "% Salidas": 0.165344, "% Inv Actual": 1.107804, "Qty Req GLM": 0, "Inv Nacional": 567263, "Six General": 155520, "Sems Inv": 3.647524, "Pallets": -0.655556, "Qty Tarimas": 10080, "Inv GLM": 172800, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": "MTAL-MMAZ"}, {"Concat": "BX0029MPER", "Codigo": "BX0029", "Descripcion": "CAJA DE CARTON RAS 6 OZ NORTH BAY", "Almacen": "MPER", "Qty 1.5wk": 7344, "Salidas": 0, "Delta": 7344, "Inv General": 0, "Delta2": 7344, "% Salidas": 0, "% Inv Actual": 0, "Qty Req GLM": 13500, "Inv Nacional": 47920, "Six General": 27824, "Sems Inv": 1.722254, "Pallets": 4.896, "Qty Tarimas": 1500, "Inv GLM": 17975, "Decision Interna": "Traslado", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "CV0009MMAZ", "Codigo": "CV0009", "Descripcion": "CLAMSHELL 18Oz BLU CUADRADO SIN ETIQUETA", "Almacen": "MMAZ", "Qty 1.5wk": 48000, "Salidas": null, "Delta": 48000, "Inv General": 25266, "Delta2": 22734, "% Salidas": 0, "% Inv Actual": 0.526375, "Qty Req GLM": 0, "Inv Nacional": 376650, "Six General": 379200, "Sems Inv": 0.993275, "Pallets": 2.392045, "Qty Tarimas": 9504, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": "MTAL-MMAZ"}, {"Concat": "BX0003MPAZ", "Codigo": "BX0003", "Descripcion": "CAJA DE CARTON BLU 12X4.4OZ BP", "Almacen": "MPAZ", "Qty 1.5wk": 4000, "Salidas": 850, "Delta": 3150, "Inv General": 4115, "Delta2": -965, "% Salidas": 0.2125, "% Inv Actual": 1.02875, "Qty Req GLM": 0, "Inv Nacional": 35741, "Six General": 10460, "Sems Inv": 3.416922, "Pallets": -0.4825, "Qty Tarimas": 2000, "Inv GLM": 14000, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "BX0006MPAZ", "Codigo": "BX0006", "Descripcion": "CAJA DE CARTON BLU 12X1PT BP", "Almacen": "MPAZ", "Qty 1.5wk": 1170, "Salidas": 900, "Delta": 270, "Inv General": 1778, "Delta2": -1508, "% Salidas": 0.769231, "% Inv Actual": 1.519658, "Qty Req GLM": 0, "Inv Nacional": 51168, "Six General": 121172, "Sems Inv": 0.422276, "Pallets": -1.508, "Qty Tarimas": 1000, "Inv GLM": 33792, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "BX0029MTUX", "Codigo": "BX0029", "Descripcion": "CAJA DE CARTON RAS 6 OZ NORTH BAY", "Almacen": "MTUX", "Qty 1.5wk": 15040, "Salidas": 12500, "Delta": 2540, "Inv General": 5350, "Delta2": -2810, "% Salidas": 0.831117, "% Inv Actual": 0.355718, "Qty Req GLM": 0, "Inv Nacional": 47920, "Six General": 27824, "Sems Inv": 1.722254, "Pallets": -1.873333, "Qty Tarimas": 1500, "Inv GLM": 17975, "Decision Interna": "Traslado", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0294MPAZ", "Codigo": "CL0294", "Descripcion": "CLAMSHELL 4.4OZ BLU BP CV NIC", "Almacen": "MPAZ", "Qty 1.5wk": 48000, "Salidas": 13800, "Delta": 34200, "Inv General": 52027, "Delta2": -17827, "% Salidas": 0.2875, "% Inv Actual": 1.083896, "Qty Req GLM": 0, "Inv Nacional": 330228, "Six General": 124800, "Sems Inv": 2.646058, "Pallets": -0.825324, "Qty Tarimas": 21600, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "PA0048MPAZ", "Codigo": "PA0048", "Descripcion": "INTERLOCK GEN-CAN2", "Almacen": "MPAZ", "Qty 1.5wk": 500, "Salidas": null, "Delta": 500, "Inv General": 250, "Delta2": 250, "% Salidas": 0, "% Inv Actual": 0.5, "Qty Req GLM": 0, "Inv Nacional": 7395, "Six General": 10500, "Sems Inv": 0.704286, "Pallets": 0.5, "Qty Tarimas": 500, "Inv GLM": 4175, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "BX0001MPER", "Codigo": "BX0001", "Descripcion": "CAJA DE CARTON GEN 12X6OZ BP", "Almacen": "MPER", "Qty 1.5wk": 7300, "Salidas": 850, "Delta": 6450, "Inv General": 12250, "Delta2": -5800, "% Salidas": 0.116438, "% Inv Actual": 1.678082, "Qty Req GLM": 0, "Inv Nacional": 176667, "Six General": 178405, "Sems Inv": 0.990258, "Pallets": -3.866667, "Qty Tarimas": 1500, "Inv GLM": 26400, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "BX0031MPER", "Codigo": "BX0031", "Descripcion": "CAJA DE CARTON 8X18OZ GEN VERTICAL", "Almacen": "MPER", "Qty 1.5wk": 12096, "Salidas": 0, "Delta": 12096, "Inv General": 0, "Delta2": 12096, "% Salidas": 0, "% Inv Actual": 0, "Qty Req GLM": 6000, "Inv Nacional": 34205, "Six General": 12096, "Sems Inv": 2.827794, "Pallets": 12.096, "Qty Tarimas": 1000, "Inv GLM": 3800, "Decision Interna": "Traslado", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "BX0005MPER", "Codigo": "BX0005", "Descripcion": "CAJA DE CARTON BLU 12X18OZ BP", "Almacen": "MPER", "Qty 1.5wk": 3594, "Salidas": 1063, "Delta": 2531, "Inv General": 2500, "Delta2": 31, "% Salidas": 0.295771, "% Inv Actual": 0.695604, "Qty Req GLM": 0, "Inv Nacional": 36668, "Six General": 38252, "Sems Inv": 0.95859, "Pallets": 0.062, "Qty Tarimas": 500, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "BX0006MPER", "Codigo": "BX0006", "Descripcion": "CAJA DE CARTON BLU 12X1PT BP", "Almacen": "MPER", "Qty 1.5wk": 28468, "Salidas": 20249, "Delta": 8219, "Inv General": 0, "Delta2": 8219, "% Salidas": 0.71129, "% Inv Actual": 0, "Qty Req GLM": 8000, "Inv Nacional": 51168, "Six General": 121172, "Sems Inv": 0.422276, "Pallets": 8.219, "Qty Tarimas": 1000, "Inv GLM": 33792, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "BX0040MTAL", "Codigo": "BX0040", "Descripcion": "CAJA DE CARTON 08X12OZ BLK GENERICA", "Almacen": "MTAL", "Qty 1.5wk": 720, "Salidas": 0, "Delta": 720, "Inv General": 0, "Delta2": 720, "% Salidas": 0, "% Inv Actual": 0, "Qty Req GLM": 700, "Inv Nacional": 425, "Six General": 720, "Sems Inv": 0.590278, "Pallets": 0.72, "Qty Tarimas": 1000, "Inv GLM": 8400, "Decision Interna": "Traslado", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "CL0243MREY", "Codigo": "CL0243", "Descripcion": "CLAMSHELL RAS 4.4OZ BP CV FRUTA", "Almacen": "MREY", "Qty 1.5wk": 96960, "Salidas": 18600, "Delta": 78360, "Inv General": 30600, "Delta2": 47760, "% Salidas": 0.191832, "% Inv Actual": 0.315594, "Qty Req GLM": 0, "Inv Nacional": 323483, "Six General": 96960, "Sems Inv": 3.336252, "Pallets": 2.25283, "Qty Tarimas": 21200, "Inv GLM": 0, "Decision Interna": "Traslado", "Decision Externa": "Corto", "Comentarios": "MLAJ-MREY"}, {"Concat": "BX0042MPER", "Codigo": "BX0042", "Descripcion": "CAJA DE CARTON ECOPACK BP", "Almacen": "MPER", "Qty 1.5wk": 1200, "Salidas": 400, "Delta": 800, "Inv General": 750, "Delta2": 50, "% Salidas": 0.333333, "% Inv Actual": 0.625, "Qty Req GLM": 0, "Inv Nacional": 751, "Six General": 1440, "Sems Inv": 0.521528, "Pallets": 0.05, "Qty Tarimas": 1000, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0255MPER", "Codigo": "CL0255", "Descripcion": "CLAMSHELL BLU 9.8 JUMBO FRUTA", "Almacen": "MPER", "Qty 1.5wk": 18000, "Salidas": null, "Delta": 18000, "Inv General": 19600, "Delta2": -1600, "% Salidas": 0, "% Inv Actual": 1.088889, "Qty Req GLM": 0, "Inv Nacional": 309992, "Six General": 93240, "Sems Inv": 3.324668, "Pallets": -0.15873, "Qty Tarimas": 10080, "Inv GLM": 364800, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0256MPER", "Codigo": "CL0256", "Descripcion": "CLAMSHELL BLU 6OZ BP FRUTA", "Almacen": "MPER", "Qty 1.5wk": 87600, "Salidas": 18600, "Delta": 69000, "Inv General": 129000, "Delta2": -60000, "% Salidas": 0.212329, "% Inv Actual": 1.472603, "Qty Req GLM": 0, "Inv Nacional": 1034054, "Six General": 817080, "Sems Inv": 1.265548, "Pallets": -3.125, "Qty Tarimas": 19200, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0263MPER", "Codigo": "CL0263", "Descripcion": "CLAMSHELL BLU 18OZ BP CV FRUTA", "Almacen": "MPER", "Qty 1.5wk": 23928, "Salidas": 19400, "Delta": 4528, "Inv General": 38250, "Delta2": -33722, "% Salidas": 0.810766, "% Inv Actual": 1.598546, "Qty Req GLM": 0, "Inv Nacional": 286498, "Six General": 51024, "Sems Inv": 5.614966, "Pallets": -6.7444, "Qty Tarimas": 5000, "Inv GLM": 40500, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0255MPAZ", "Codigo": "CL0255", "Descripcion": "CLAMSHELL BLU 9.8 JUMBO FRUTA", "Almacen": "MPAZ", "Qty 1.5wk": 14040, "Salidas": 8100, "Delta": 5940, "Inv General": 12132, "Delta2": -6192, "% Salidas": 0.576923, "% Inv Actual": 0.864103, "Qty Req GLM": 0, "Inv Nacional": 309992, "Six General": 93240, "Sems Inv": 3.324668, "Pallets": -0.614286, "Qty Tarimas": 10080, "Inv GLM": 364800, "Decision Interna": "Traslado", "Decision Externa": "Cubierto", "Comentarios": "MREY-MPAZ"}, {"Concat": "CL0294MPER", "Codigo": "CL0294", "Descripcion": "CLAMSHELL 4.4OZ BLU BP CV NIC", "Almacen": "MPER", "Qty 1.5wk": 76800, "Salidas": 22200, "Delta": 54600, "Inv General": 150772, "Delta2": -96172, "% Salidas": 0.289062, "% Inv Actual": 1.963177, "Qty Req GLM": 0, "Inv Nacional": 330228, "Six General": 124800, "Sems Inv": 2.646058, "Pallets": -4.452407, "Qty Tarimas": 21600, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0256MTAL", "Codigo": "CL0256", "Descripcion": "CLAMSHELL BLU 6OZ BP FRUTA", "Almacen": "MTAL", "Qty 1.5wk": 418440, "Salidas": 63000, "Delta": 355440, "Inv General": 214632, "Delta2": 140808, "% Salidas": 0.150559, "% Inv Actual": 0.512934, "Qty Req GLM": 0, "Inv Nacional": 1034054, "Six General": 817080, "Sems Inv": 1.265548, "Pallets": 7.33375, "Qty Tarimas": 19200, "Inv GLM": 0, "Decision Interna": "Traslado", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0256MTUX", "Codigo": "CL0256", "Descripcion": "CLAMSHELL BLU 6OZ BP FRUTA", "Almacen": "MTUX", "Qty 1.5wk": 311040, "Salidas": 13800, "Delta": 297240, "Inv General": 274200, "Delta2": 23040, "% Salidas": 0.044367, "% Inv Actual": 0.881559, "Qty Req GLM": 0, "Inv Nacional": 1034054, "Six General": 817080, "Sems Inv": 1.265548, "Pallets": 1.2, "Qty Tarimas": 19200, "Inv GLM": 0, "Decision Interna": "Traslado", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0303MPER", "Codigo": "CL0303", "Descripcion": "CLAMSHELL BLU 11OZ SWEET BLISS", "Almacen": "MPER", "Qty 1.5wk": 9120, "Salidas": 2940, "Delta": 6180, "Inv General": 18740, "Delta2": -12560, "% Salidas": 0.322368, "% Inv Actual": 2.054825, "Qty Req GLM": 0, "Inv Nacional": 207740, "Six General": 10920, "Sems Inv": 19.02381, "Pallets": -1.246032, "Qty Tarimas": 10080, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0260MTAL", "Codigo": "CL0260", "Descripcion": "CLAMSHELL BLU 6OZ SUNNY CV FRUTA", "Almacen": "MTAL", "Qty 1.5wk": 69120, "Salidas": 14100, "Delta": 55020, "Inv General": 1926, "Delta2": 53094, "% Salidas": 0.203993, "% Inv Actual": 0.027865, "Qty Req GLM": 0, "Inv Nacional": 4926, "Six General": 69120, "Sems Inv": 0.071267, "Pallets": 3.160357, "Qty Tarimas": 16800, "Inv GLM": 0, "Decision Interna": "Traslado", "Decision Externa": "Corto", "Comentarios": "MPAZ-MTAL"}, {"Concat": "CL0318MPER", "Codigo": "CL0318", "Descripcion": "CLAMSHELL BLU 9.8OZ JUMBO HM CV", "Almacen": "MPER", "Qty 1.5wk": 290304, "Salidas": 92000, "Delta": 198304, "Inv General": 0, "Delta2": 198304, "% Salidas": 0.316909, "% Inv Actual": 0, "Qty Req GLM": 0, "Inv Nacional": 338320, "Six General": 844416, "Sems Inv": 0.400656, "Pallets": 20.656667, "Qty Tarimas": 9600, "Inv GLM": 144000, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "BX0005MMAZ", "Codigo": "BX0005", "Descripcion": "CAJA DE CARTON BLU 12X18OZ BP", "Almacen": "MMAZ", "Qty 1.5wk": 4000, "Salidas": 1650, "Delta": 2350, "Inv General": 375, "Delta2": 1975, "% Salidas": 0.4125, "% Inv Actual": 0.09375, "Qty Req GLM": 0, "Inv Nacional": 36668, "Six General": 38252, "Sems Inv": 0.95859, "Pallets": 3.95, "Qty Tarimas": 500, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Corto", "Comentarios": null}, {"Concat": "CL0349MPER", "Codigo": "CL0349", "Descripcion": "CLAMSHELL BLK 6OZ NORTH BAY CV", "Almacen": "MPER", "Qty 1.5wk": 88128, "Salidas": null, "Delta": 88128, "Inv General": 0, "Delta2": 88128, "% Salidas": 0, "% Inv Actual": 0, "Qty Req GLM": 88320, "Inv Nacional": 0, "Six General": 88128, "Sems Inv": 0, "Pallets": 4.59, "Qty Tarimas": 19200, "Inv GLM": 239400, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "CV0009MPER", "Codigo": "CV0009", "Descripcion": "CLAMSHELL 18Oz BLU CUADRADO SIN ETIQUETA", "Almacen": "MPER", "Qty 1.5wk": 19200, "Salidas": null, "Delta": 19200, "Inv General": 48840, "Delta2": -29640, "% Salidas": 0, "% Inv Actual": 2.54375, "Qty Req GLM": 0, "Inv Nacional": 376650, "Six General": 379200, "Sems Inv": 0.993275, "Pallets": -3.118687, "Qty Tarimas": 9504, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CV0011MPER", "Codigo": "CV0011", "Descripcion": "CLAMSHELL 18Oz BLU RECTANGULAR SIN ETIQUETA", "Almacen": "MPER", "Qty 1.5wk": 6912, "Salidas": null, "Delta": 6912, "Inv General": 89533, "Delta2": -82621, "% Salidas": 0, "% Inv Actual": 12.95327, "Qty Req GLM": 0, "Inv Nacional": 479156, "Six General": 82944, "Sems Inv": 5.776861, "Pallets": -8.693287, "Qty Tarimas": 9504, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "PA0048MPER", "Codigo": "PA0048", "Descripcion": "INTERLOCK GEN-CAN2", "Almacen": "MPER", "Qty 1.5wk": 2000, "Salidas": null, "Delta": 2000, "Inv General": 750, "Delta2": 1250, "% Salidas": 0, "% Inv Actual": 0.375, "Qty Req GLM": 2000, "Inv Nacional": 7395, "Six General": 10500, "Sems Inv": 0.704286, "Pallets": 2.5, "Qty Tarimas": 500, "Inv GLM": 4175, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "CL0315MMAZ", "Codigo": "CL0315", "Descripcion": "CLAMSHELL BLU 18OZ RESERVE NBP CV", "Almacen": "MMAZ", "Qty 1.5wk": 25920, "Salidas": 8640, "Delta": 17280, "Inv General": 8166, "Delta2": 9114, "% Salidas": 0.333333, "% Inv Actual": 0.315046, "Qty Req GLM": 0, "Inv Nacional": 74130, "Six General": 86400, "Sems Inv": 0.857986, "Pallets": 1.519, "Qty Tarimas": 6000, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Corto", "Comentarios": null}, {"Concat": "BX0006MQUI", "Codigo": "BX0006", "Descripcion": "CAJA DE CARTON BLU 12X1PT BP", "Almacen": "MQUI", "Qty 1.5wk": 8544, "Salidas": 800, "Delta": 7744, "Inv General": 8350, "Delta2": -606, "% Salidas": 0.093633, "% Inv Actual": 0.977294, "Qty Req GLM": 0, "Inv Nacional": 51168, "Six General": 121172, "Sems Inv": 0.422276, "Pallets": -0.606, "Qty Tarimas": 1000, "Inv GLM": 33792, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": "MTAL-MQUI"}, {"Concat": "CL0318MQUI", "Codigo": "CL0318", "Descripcion": "CLAMSHELL BLU 9.8OZ JUMBO HM CV", "Almacen": "MQUI", "Qty 1.5wk": 102528, "Salidas": 0, "Delta": 102528, "Inv General": 79200, "Delta2": 23328, "% Salidas": 0, "% Inv Actual": 0.772472, "Qty Req GLM": 0, "Inv Nacional": 338320, "Six General": 844416, "Sems Inv": 0.400656, "Pallets": 2.43, "Qty Tarimas": 9600, "Inv GLM": 144000, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "CL0302MPER", "Codigo": "CL0302", "Descripcion": "CLAMSHELL BLU 6OZ ECOPACK BP CV", "Almacen": "MPER", "Qty 1.5wk": 14400, "Salidas": 2594, "Delta": 11806, "Inv General": 6, "Delta2": 11800, "% Salidas": 0.180139, "% Inv Actual": 0.000417, "Qty Req GLM": 0, "Inv Nacional": 1226, "Six General": 17280, "Sems Inv": 0.070949, "Pallets": 67, "Qty Tarimas": 16800, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Corto", "Comentarios": null}, {"Concat": "BX0001MREY", "Codigo": "BX0001", "Descripcion": "CAJA DE CARTON GEN 12X6OZ BP", "Almacen": "MREY", "Qty 1.5wk": 9872, "Salidas": 0, "Delta": 9872, "Inv General": 13185, "Delta2": -3313, "% Salidas": 0, "% Inv Actual": 1.335596, "Qty Req GLM": 0, "Inv Nacional": 176667, "Six General": 178405, "Sems Inv": 0.990258, "Pallets": -2.208667, "Qty Tarimas": 1500, "Inv GLM": 26400, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": "Corto"}, {"Concat": "BX0006MREY", "Codigo": "BX0006", "Descripcion": "CAJA DE CARTON BLU 12X1PT BP", "Almacen": "MREY", "Qty 1.5wk": 3010, "Salidas": 0, "Delta": 3010, "Inv General": 0, "Delta2": 3010, "% Salidas": 0, "% Inv Actual": 0, "Qty Req GLM": 8000, "Inv Nacional": 51168, "Six General": 121172, "Sems Inv": 0.422276, "Pallets": 3.01, "Qty Tarimas": 1000, "Inv GLM": 33792, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "BX0021MREY", "Codigo": "BX0021", "Descripcion": "CAJA DE CARTON RAS/BLK 4.4OZ BP", "Almacen": "MREY", "Qty 1.5wk": 8080, "Salidas": 975, "Delta": 7105, "Inv General": 9575, "Delta2": -2470, "% Salidas": 0.120668, "% Inv Actual": 1.185025, "Qty Req GLM": 0, "Inv Nacional": 51555, "Six General": 8080, "Sems Inv": 6.380569, "Pallets": -1.235, "Qty Tarimas": 2000, "Inv GLM": 14850, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "BX0046MREY", "Codigo": "BX0046", "Descripcion": "CAJA DE CARTON RAS/BLK 12X18OZ BP", "Almacen": "MREY", "Qty 1.5wk": 690, "Salidas": null, "Delta": 690, "Inv General": 5275, "Delta2": -4585, "% Salidas": 0, "% Inv Actual": 7.644928, "Qty Req GLM": 0, "Inv Nacional": 14086, "Six General": 2156, "Sems Inv": 6.533395, "Pallets": -9.17, "Qty Tarimas": 500, "Inv GLM": 3500, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": "Corto"}, {"Concat": "BX0049MREY", "Codigo": "BX0049", "Descripcion": "CAJA DE CARTON BLK 6OZ HV GENERICA", "Almacen": "MREY", "Qty 1.5wk": 2880, "Salidas": 500, "Delta": 2380, "Inv General": 1325, "Delta2": 1055, "% Salidas": 0.173611, "% Inv Actual": 0.460069, "Qty Req GLM": 3300, "Inv Nacional": 6310, "Six General": 6336, "Sems Inv": 0.995896, "Pallets": 0.639394, "Qty Tarimas": 1650, "Inv GLM": 44045, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "CL0313MPER", "Codigo": "CL0313", "Descripcion": "CLAMSHELL BLU 9.8OZ JUMBO THE FRUITIST CV", "Almacen": "MPER", "Qty 1.5wk": 96768, "Salidas": 0, "Delta": 96768, "Inv General": 0, "Delta2": 96768, "% Salidas": 0, "% Inv Actual": 0, "Qty Req GLM": 0, "Inv Nacional": 1800, "Six General": 193536, "Sems Inv": 0.009301, "Pallets": 12.6, "Qty Tarimas": 7680, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Corto", "Comentarios": null}, {"Concat": "CL0266MPER", "Codigo": "CL0266", "Descripcion": "CLAMSHELL BLU 1PT FLAT BP FRUTA", "Almacen": "MPER", "Qty 1.5wk": 13824, "Salidas": 34268, "Delta": -20444, "Inv General": 1600, "Delta2": -22044, "% Salidas": 2.478877, "% Inv Actual": 0.115741, "Qty Req GLM": 0, "Inv Nacional": 106167, "Six General": 41472, "Sems Inv": 2.559968, "Pallets": -2.186905, "Qty Tarimas": 10080, "Inv GLM": 237120, "Decision Interna": "Traslado", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0285MREY", "Codigo": "CL0285", "Descripcion": "CLAMSHELL RAS 6OZ BP C-PAD FRUTA NIC", "Almacen": "MREY", "Qty 1.5wk": 54360, "Salidas": 49800, "Delta": 4560, "Inv General": 222600, "Delta2": -218040, "% Salidas": 0.916115, "% Inv Actual": 4.094923, "Qty Req GLM": 0, "Inv Nacional": 1028845, "Six General": 455472, "Sems Inv": 2.258855, "Pallets": -11.35625, "Qty Tarimas": 19200, "Inv GLM": 1620000, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0286MREY", "Codigo": "CL0286", "Descripcion": "CLAMSHELL RAS 12OZ BP CV FRUTA NIC", "Almacen": "MREY", "Qty 1.5wk": 720, "Salidas": 0, "Delta": 720, "Inv General": 4800, "Delta2": -4080, "% Salidas": 0, "% Inv Actual": 6.666667, "Qty Req GLM": 0, "Inv Nacional": 188349, "Six General": 9569, "Sems Inv": 19.683248, "Pallets": -0.377778, "Qty Tarimas": 10800, "Inv GLM": 11200, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0287MREY", "Codigo": "CL0287", "Descripcion": "CLAMSHELL RAS 6OZ BP ORG FRUTA NIC", "Almacen": "MREY", "Qty 1.5wk": 10824, "Salidas": 5400, "Delta": 5424, "Inv General": 58620, "Delta2": -53196, "% Salidas": 0.498891, "% Inv Actual": 5.415743, "Qty Req GLM": 0, "Inv Nacional": 544748, "Six General": 63024, "Sems Inv": 8.643501, "Pallets": -2.770625, "Qty Tarimas": 19200, "Inv GLM": 1643400, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0296MREY", "Codigo": "CL0296", "Descripcion": "CLAMSHELL 8OZ TRIPACK CV NIC", "Almacen": "MREY", "Qty 1.5wk": 36120, "Salidas": 8400, "Delta": 27720, "Inv General": 40800, "Delta2": -13080, "% Salidas": 0.232558, "% Inv Actual": 1.129568, "Qty Req GLM": 0, "Inv Nacional": 124000, "Six General": 40080, "Sems Inv": 3.093812, "Pallets": -1.453333, "Qty Tarimas": 9000, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0309MREY", "Codigo": "CL0309", "Descripcion": "CLAMSHELL RAS 18OZ SWEET BLISS CV", "Almacen": "MREY", "Qty 1.5wk": 8280, "Salidas": 4620, "Delta": 3660, "Inv General": 85680, "Delta2": -82020, "% Salidas": 0.557971, "% Inv Actual": 10.347826, "Qty Req GLM": 0, "Inv Nacional": 98651, "Six General": 25872, "Sems Inv": 3.813041, "Pallets": -14.698925, "Qty Tarimas": 5580, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0321MREY", "Codigo": "CL0321", "Descripcion": "CLAMSHELL RAS 6OZ HM CV", "Almacen": "MREY", "Qty 1.5wk": 5760, "Salidas": null, "Delta": 5760, "Inv General": 20400, "Delta2": -14640, "% Salidas": 0, "% Inv Actual": 3.541667, "Qty Req GLM": 0, "Inv Nacional": 415682, "Six General": 270720, "Sems Inv": 1.535468, "Pallets": -0.871429, "Qty Tarimas": 16800, "Inv GLM": 72000, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0320MPER", "Codigo": "CL0320", "Descripcion": "CLAMSHELL BLU 18OZ FRUITIST RECTANGULAR", "Almacen": "MPER", "Qty 1.5wk": 161280, "Salidas": 0, "Delta": 161280, "Inv General": 0, "Delta2": 161280, "% Salidas": 0, "% Inv Actual": 0, "Qty Req GLM": 0, "Inv Nacional": 18040, "Six General": 225792, "Sems Inv": 0.079897, "Pallets": 23.717647, "Qty Tarimas": 6800, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Corto", "Comentarios": null}, {"Concat": "PA0048MREY", "Codigo": "PA0048", "Descripcion": "INTERLOCK GEN-CAN2", "Almacen": "MREY", "Qty 1.5wk": 2000, "Salidas": null, "Delta": 2000, "Inv General": 0, "Delta2": 2000, "% Salidas": 0, "% Inv Actual": 0, "Qty Req GLM": 0, "Inv Nacional": 7395, "Six General": 10500, "Sems Inv": 0.704286, "Pallets": 4, "Qty Tarimas": 500, "Inv GLM": 4175, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "BX0001MSAY", "Codigo": "BX0001", "Descripcion": "CAJA DE CARTON GEN 12X6OZ BP", "Almacen": "MSAY", "Qty 1.5wk": 24294, "Salidas": 1600, "Delta": 22694, "Inv General": 14270, "Delta2": 8424, "% Salidas": 0.06586, "% Inv Actual": 0.587388, "Qty Req GLM": 7500, "Inv Nacional": 176667, "Six General": 178405, "Sems Inv": 0.990258, "Pallets": 5.616, "Qty Tarimas": 1500, "Inv GLM": 26400, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "BX0029MSAY", "Codigo": "BX0029", "Descripcion": "CAJA DE CARTON RAS 6 OZ NORTH BAY", "Almacen": "MSAY", "Qty 1.5wk": 5440, "Salidas": 300, "Delta": 5140, "Inv General": 11855, "Delta2": -6715, "% Salidas": 0.055147, "% Inv Actual": 2.179228, "Qty Req GLM": 0, "Inv Nacional": 47920, "Six General": 27824, "Sems Inv": 1.722254, "Pallets": -4.476667, "Qty Tarimas": 1500, "Inv GLM": 17975, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0277MSAY", "Codigo": "CL0277", "Descripcion": "CLAMSHELL RAS 12OZ NORTH BAY CV", "Almacen": "MSAY", "Qty 1.5wk": 32640, "Salidas": 2400, "Delta": 30240, "Inv General": 32571, "Delta2": -2331, "% Salidas": 0.073529, "% Inv Actual": 0.997886, "Qty Req GLM": 0, "Inv Nacional": 92781, "Six General": 65280, "Sems Inv": 1.421278, "Pallets": -0.215833, "Qty Tarimas": 10800, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0285MSAY", "Codigo": "CL0285", "Descripcion": "CLAMSHELL RAS 6OZ BP C-PAD FRUTA NIC", "Almacen": "MSAY", "Qty 1.5wk": 26208, "Salidas": 19801, "Delta": 6407, "Inv General": 52250, "Delta2": -45843, "% Salidas": 0.755533, "% Inv Actual": 1.993666, "Qty Req GLM": 0, "Inv Nacional": 1028845, "Six General": 455472, "Sems Inv": 2.258855, "Pallets": -2.387656, "Qty Tarimas": 19200, "Inv GLM": 1620000, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0287MSAY", "Codigo": "CL0287", "Descripcion": "CLAMSHELL RAS 6OZ BP ORG FRUTA NIC", "Almacen": "MSAY", "Qty 1.5wk": 46440, "Salidas": 9000, "Delta": 37440, "Inv General": 125302, "Delta2": -87862, "% Salidas": 0.193798, "% Inv Actual": 2.698148, "Qty Req GLM": 0, "Inv Nacional": 544748, "Six General": 63024, "Sems Inv": 8.643501, "Pallets": -4.576146, "Qty Tarimas": 19200, "Inv GLM": 1643400, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0321MSAY", "Codigo": "CL0321", "Descripcion": "CLAMSHELL RAS 6OZ HM CV", "Almacen": "MSAY", "Qty 1.5wk": 115200, "Salidas": 8800, "Delta": 106400, "Inv General": 119048, "Delta2": -12648, "% Salidas": 0.076389, "% Inv Actual": 1.033403, "Qty Req GLM": 33600, "Inv Nacional": 415682, "Six General": 270720, "Sems Inv": 1.535468, "Pallets": -0.752857, "Qty Tarimas": 16800, "Inv GLM": 72000, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0266MTAL", "Codigo": "CL0266", "Descripcion": "CLAMSHELL BLU 1PT FLAT BP FRUTA", "Almacen": "MTAL", "Qty 1.5wk": 27648, "Salidas": 42420, "Delta": -14772, "Inv General": 7920, "Delta2": -22692, "% Salidas": 1.534288, "% Inv Actual": 0.286458, "Qty Req GLM": 0, "Inv Nacional": 106167, "Six General": 41472, "Sems Inv": 2.559968, "Pallets": -2.25119, "Qty Tarimas": 10080, "Inv GLM": 237120, "Decision Interna": "Traslado", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CV0023MSAY", "Codigo": "CV0023", "Descripcion": "CLAMSHELL 12OZ RAS C/PAD DIVISION", "Almacen": "MSAY", "Qty 1.5wk": 5760, "Salidas": null, "Delta": 5760, "Inv General": 46468, "Delta2": -40708, "% Salidas": 0, "% Inv Actual": 8.067361, "Qty Req GLM": 0, "Inv Nacional": 440109, "Six General": 43200, "Sems Inv": 10.187708, "Pallets": -3.769259, "Qty Tarimas": 10800, "Inv GLM": 153600, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "BX0001MTAL", "Codigo": "BX0001", "Descripcion": "CAJA DE CARTON GEN 12X6OZ BP", "Almacen": "MTAL", "Qty 1.5wk": 92491, "Salidas": 1800, "Delta": 90691, "Inv General": 52786, "Delta2": 37905, "% Salidas": 0.019461, "% Inv Actual": 0.570715, "Qty Req GLM": 36000, "Inv Nacional": 176667, "Six General": 178405, "Sems Inv": 0.990258, "Pallets": 25.27, "Qty Tarimas": 1500, "Inv GLM": 26400, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": "MTAL-MMAZ"}, {"Concat": "BX0003MTAL", "Codigo": "BX0003", "Descripcion": "CAJA DE CARTON BLU 12X4.4OZ BP", "Almacen": "MTAL", "Qty 1.5wk": 60, "Salidas": 2450, "Delta": -2390, "Inv General": 15475, "Delta2": -17865, "% Salidas": 40.833333, "% Inv Actual": 257.916667, "Qty Req GLM": 0, "Inv Nacional": 35741, "Six General": 10460, "Sems Inv": 3.416922, "Pallets": -8.9325, "Qty Tarimas": 2000, "Inv GLM": 14000, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "BX0005MQUI", "Codigo": "BX0005", "Descripcion": "CAJA DE CARTON BLU 12X18OZ BP", "Almacen": "MQUI", "Qty 1.5wk": 12400, "Salidas": 2000, "Delta": 10400, "Inv General": 4250, "Delta2": 6150, "% Salidas": 0.16129, "% Inv Actual": 0.342742, "Qty Req GLM": 0, "Inv Nacional": 36668, "Six General": 38252, "Sems Inv": 0.95859, "Pallets": 12.3, "Qty Tarimas": 500, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Corto", "Comentarios": null}, {"Concat": "BX0006MTAL", "Codigo": "BX0006", "Descripcion": "CAJA DE CARTON BLU 12X1PT BP", "Almacen": "MTAL", "Qty 1.5wk": 55884, "Salidas": 19075, "Delta": 36809, "Inv General": 17000, "Delta2": 19809, "% Salidas": 0.341332, "% Inv Actual": 0.304202, "Qty Req GLM": 24000, "Inv Nacional": 51168, "Six General": 121172, "Sems Inv": 0.422276, "Pallets": 19.809, "Qty Tarimas": 1000, "Inv GLM": 33792, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "CL0267MTAL", "Codigo": "CL0267", "Descripcion": "CLAMSHELL RAS 12OZ SUNNY CV FRUTA", "Almacen": "MTAL", "Qty 1.5wk": 20160, "Salidas": 1050, "Delta": 19110, "Inv General": 2218, "Delta2": 16892, "% Salidas": 0.052083, "% Inv Actual": 0.11002, "Qty Req GLM": 0, "Inv Nacional": 16552, "Six General": 20160, "Sems Inv": 0.821032, "Pallets": 1.508214, "Qty Tarimas": 11200, "Inv GLM": 0, "Decision Interna": "Traslado", "Decision Externa": "Corto", "Comentarios": "MABS,MSAY, MREY A TALA"}, {"Concat": "CV0009MQUI", "Codigo": "CV0009", "Descripcion": "CLAMSHELL 18Oz BLU CUADRADO SIN ETIQUETA", "Almacen": "MQUI", "Qty 1.5wk": 148800, "Salidas": null, "Delta": 148800, "Inv General": 1595, "Delta2": 147205, "% Salidas": 0, "% Inv Actual": 0.010719, "Qty Req GLM": 0, "Inv Nacional": 376650, "Six General": 379200, "Sems Inv": 0.993275, "Pallets": 15.488742, "Qty Tarimas": 9504, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Corto", "Comentarios": null}, {"Concat": "BX0043MTAL", "Codigo": "BX0043", "Descripcion": "CAJA DE CARTON 6OZ BLU BP ARMADO AUTOMÁTICO", "Almacen": "MTAL", "Qty 1.5wk": 20000, "Salidas": 0, "Delta": 20000, "Inv General": 48727, "Delta2": -28727, "% Salidas": 0, "% Inv Actual": 2.43635, "Qty Req GLM": 0, "Inv Nacional": 53127, "Six General": 20000, "Sems Inv": 2.65635, "Pallets": -13.057727, "Qty Tarimas": 2200, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "BX0044MTAL", "Codigo": "BX0044", "Descripcion": "CAJA DE CARTON 4.4OZ BLU BP ARMADO AUTOMÁTICO", "Almacen": "MTAL", "Qty 1.5wk": 20000, "Salidas": 0, "Delta": 20000, "Inv General": 26600, "Delta2": -6600, "% Salidas": 0, "% Inv Actual": 1.33, "Qty Req GLM": 0, "Inv Nacional": 35600, "Six General": 20000, "Sems Inv": 1.78, "Pallets": -2.2, "Qty Tarimas": 3000, "Inv GLM": 9000, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "BX0045MTAL", "Codigo": "BX0045", "Descripcion": "CAJA DE CARTON 1 PINTA/8X18OZ BLU BP ARMADO AUTOMÁTICO", "Almacen": "MTAL", "Qty 1.5wk": 20000, "Salidas": 4000, "Delta": 16000, "Inv General": 13716, "Delta2": 2284, "% Salidas": 0.2, "% Inv Actual": 0.6858, "Qty Req GLM": 0, "Inv Nacional": 13716, "Six General": 20000, "Sems Inv": 0.6858, "Pallets": 1.142, "Qty Tarimas": 2000, "Inv GLM": 18350, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "BX0046MTAL", "Codigo": "BX0046", "Descripcion": "CAJA DE CARTON RAS/BLK 12X18OZ BP", "Almacen": "MTAL", "Qty 1.5wk": 1466, "Salidas": 425, "Delta": 1041, "Inv General": 3617, "Delta2": -2576, "% Salidas": 0.289905, "% Inv Actual": 2.467258, "Qty Req GLM": 0, "Inv Nacional": 14086, "Six General": 2156, "Sems Inv": 6.533395, "Pallets": -5.152, "Qty Tarimas": 500, "Inv GLM": 3500, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": "MTAL-MQUI"}, {"Concat": "BX0048MTAL", "Codigo": "BX0048", "Descripcion": "CAJA DE CARTON BLU 18OZ BLU RESERVE NBP", "Almacen": "MTAL", "Qty 1.5wk": 5040, "Salidas": 400, "Delta": 4640, "Inv General": 1949, "Delta2": 2691, "% Salidas": 0.079365, "% Inv Actual": 0.386706, "Qty Req GLM": 1000, "Inv Nacional": 8279, "Six General": 7200, "Sems Inv": 1.149861, "Pallets": 2.691, "Qty Tarimas": 1000, "Inv GLM": 11358, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "BX0049MTAL", "Codigo": "BX0049", "Descripcion": "CAJA DE CARTON BLK 6OZ HV GENERICA", "Almacen": "MTAL", "Qty 1.5wk": 3456, "Salidas": 0, "Delta": 3456, "Inv General": 0, "Delta2": 3456, "% Salidas": 0, "% Inv Actual": 0, "Qty Req GLM": 3465, "Inv Nacional": 6310, "Six General": 6336, "Sems Inv": 0.995896, "Pallets": 2.094545, "Qty Tarimas": 1650, "Inv GLM": 44045, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "CL0249MTAL", "Codigo": "CL0249", "Descripcion": "CLAMSHELL BLU 4.4OZ BP ORG FRUTA", "Almacen": "MTAL", "Qty 1.5wk": 720, "Salidas": 900, "Delta": -180, "Inv General": 16172, "Delta2": -16352, "% Salidas": 1.25, "% Inv Actual": 22.461111, "Qty Req GLM": 0, "Inv Nacional": 30572, "Six General": 720, "Sems Inv": 42.461111, "Pallets": -0.851667, "Qty Tarimas": 19200, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0252MTAL", "Codigo": "CL0252", "Descripcion": "CLAMSHELL BLU 18OZ BP JUMBO FRUTA", "Almacen": "MTAL", "Qty 1.5wk": 28800, "Salidas": 17250, "Delta": 11550, "Inv General": 37591, "Delta2": -26041, "% Salidas": 0.598958, "% Inv Actual": 1.305243, "Qty Req GLM": 0, "Inv Nacional": 73798, "Six General": 28800, "Sems Inv": 2.562431, "Pallets": -3.829559, "Qty Tarimas": 6800, "Inv GLM": 22500, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0255MTAL", "Codigo": "CL0255", "Descripcion": "CLAMSHELL BLU 9.8 JUMBO FRUTA", "Almacen": "MTAL", "Qty 1.5wk": 61200, "Salidas": 22400, "Delta": 38800, "Inv General": 70400, "Delta2": -31600, "% Salidas": 0.366013, "% Inv Actual": 1.150327, "Qty Req GLM": 0, "Inv Nacional": 309992, "Six General": 93240, "Sems Inv": 3.324668, "Pallets": -3.134921, "Qty Tarimas": 10080, "Inv GLM": 364800, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0270MTAL", "Codigo": "CL0270", "Descripcion": "CLAMSHELL BLK 6OZ FRUTA", "Almacen": "MTAL", "Qty 1.5wk": 41472, "Salidas": 0, "Delta": 41472, "Inv General": 22200, "Delta2": 19272, "% Salidas": 0, "% Inv Actual": 0.535301, "Qty Req GLM": 16800, "Inv Nacional": 105915, "Six General": 41472, "Sems Inv": 2.553892, "Pallets": 1.147143, "Qty Tarimas": 16800, "Inv GLM": 306000, "Decision Interna": "Traslado", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "BX0005MTAL", "Codigo": "BX0005", "Descripcion": "CAJA DE CARTON BLU 12X18OZ BP", "Almacen": "MTAL", "Qty 1.5wk": 18258, "Salidas": 5625, "Delta": 12633, "Inv General": 1700, "Delta2": 10933, "% Salidas": 0.308084, "% Inv Actual": 0.09311, "Qty Req GLM": 4000, "Inv Nacional": 36668, "Six General": 38252, "Sems Inv": 0.95859, "Pallets": 21.866, "Qty Tarimas": 500, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Corto", "Comentarios": null}, {"Concat": "CL0263MTAL", "Codigo": "CL0263", "Descripcion": "CLAMSHELL BLU 18OZ BP CV FRUTA", "Almacen": "MTAL", "Qty 1.5wk": 27096, "Salidas": 7500, "Delta": 19596, "Inv General": 128448, "Delta2": -108852, "% Salidas": 0.276794, "% Inv Actual": 4.740478, "Qty Req GLM": 0, "Inv Nacional": 286498, "Six General": 51024, "Sems Inv": 5.614966, "Pallets": -21.7704, "Qty Tarimas": 5000, "Inv GLM": 40500, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0265MTAL", "Codigo": "CL0265", "Descripcion": "CLAMSHELL BLU 6OZ BP ORG FRUTA", "Almacen": "MTAL", "Qty 1.5wk": 59520, "Salidas": 11400, "Delta": 48120, "Inv General": 143400, "Delta2": -95280, "% Salidas": 0.191532, "% Inv Actual": 2.409274, "Qty Req GLM": 0, "Inv Nacional": 143400, "Six General": 59520, "Sems Inv": 2.409274, "Pallets": -5.671429, "Qty Tarimas": 16800, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0274MTUX", "Codigo": "CL0274", "Descripcion": "CLAMSHELL RAS 6OZ NORTH BAY ORG", "Almacen": "MTUX", "Qty 1.5wk": 115200, "Salidas": 48000, "Delta": 67200, "Inv General": 76200, "Delta2": -9000, "% Salidas": 0.416667, "% Inv Actual": 0.661458, "Qty Req GLM": 30720, "Inv Nacional": 477362, "Six General": 115200, "Sems Inv": 4.143767, "Pallets": -0.46875, "Qty Tarimas": 19200, "Inv GLM": 51600, "Decision Interna": "Traslado", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "BX0042MTAL", "Codigo": "BX0042", "Descripcion": "CAJA DE CARTON ECOPACK BP", "Almacen": "MTAL", "Qty 1.5wk": 240, "Salidas": 0, "Delta": 240, "Inv General": 1, "Delta2": 239, "% Salidas": 0, "% Inv Actual": 0.004167, "Qty Req GLM": 0, "Inv Nacional": 751, "Six General": 1440, "Sems Inv": 0.521528, "Pallets": 0.239, "Qty Tarimas": 1000, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Corto", "Comentarios": null}, {"Concat": "CL0277MTUX", "Codigo": "CL0277", "Descripcion": "CLAMSHELL RAS 12OZ NORTH BAY CV", "Almacen": "MTUX", "Qty 1.5wk": 32640, "Salidas": 46100, "Delta": -13460, "Inv General": 10150, "Delta2": -23610, "% Salidas": 1.412377, "% Inv Actual": 0.310968, "Qty Req GLM": 0, "Inv Nacional": 92781, "Six General": 65280, "Sems Inv": 1.421278, "Pallets": -2.186111, "Qty Tarimas": 10800, "Inv GLM": 0, "Decision Interna": "Traslado", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0285MTAL", "Codigo": "CL0285", "Descripcion": "CLAMSHELL RAS 6OZ BP C-PAD FRUTA NIC", "Almacen": "MTAL", "Qty 1.5wk": 227448, "Salidas": 14400, "Delta": 213048, "Inv General": 219516, "Delta2": -6468, "% Salidas": 0.063311, "% Inv Actual": 0.965126, "Qty Req GLM": 11520, "Inv Nacional": 1028845, "Six General": 455472, "Sems Inv": 2.258855, "Pallets": -0.336875, "Qty Tarimas": 19200, "Inv GLM": 1620000, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0286MTAL", "Codigo": "CL0286", "Descripcion": "CLAMSHELL RAS 12OZ BP CV FRUTA NIC", "Almacen": "MTAL", "Qty 1.5wk": 8849, "Salidas": 6400, "Delta": 2449, "Inv General": 97689, "Delta2": -95240, "% Salidas": 0.723246, "% Inv Actual": 11.039552, "Qty Req GLM": 0, "Inv Nacional": 188349, "Six General": 9569, "Sems Inv": 19.683248, "Pallets": -8.818519, "Qty Tarimas": 10800, "Inv GLM": 11200, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0287MTAL", "Codigo": "CL0287", "Descripcion": "CLAMSHELL RAS 6OZ BP ORG FRUTA NIC", "Almacen": "MTAL", "Qty 1.5wk": 5760, "Salidas": null, "Delta": 5760, "Inv General": 182026, "Delta2": -176266, "% Salidas": 0, "% Inv Actual": 31.601736, "Qty Req GLM": 0, "Inv Nacional": 544748, "Six General": 63024, "Sems Inv": 8.643501, "Pallets": -9.180521, "Qty Tarimas": 19200, "Inv GLM": 1643400, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0296MTAL", "Codigo": "CL0296", "Descripcion": "CLAMSHELL 8OZ TRIPACK CV NIC", "Almacen": "MTAL", "Qty 1.5wk": 3960, "Salidas": 0, "Delta": 3960, "Inv General": 39600, "Delta2": -35640, "% Salidas": 0, "% Inv Actual": 10, "Qty Req GLM": 0, "Inv Nacional": 124000, "Six General": 40080, "Sems Inv": 3.093812, "Pallets": -3.96, "Qty Tarimas": 9000, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0297MTAL", "Codigo": "CL0297", "Descripcion": "CLAMSHELL 12OZ BLK BP CV NIC", "Almacen": "MTAL", "Qty 1.5wk": 5760, "Salidas": 0, "Delta": 5760, "Inv General": 11988, "Delta2": -6228, "% Salidas": 0, "% Inv Actual": 2.08125, "Qty Req GLM": 0, "Inv Nacional": 19287, "Six General": 5760, "Sems Inv": 3.348438, "Pallets": -0.64875, "Qty Tarimas": 9600, "Inv GLM": 223200, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0302MTAL", "Codigo": "CL0302", "Descripcion": "CLAMSHELL BLU 6OZ ECOPACK BP CV", "Almacen": "MTAL", "Qty 1.5wk": 2880, "Salidas": 0, "Delta": 2880, "Inv General": 1220, "Delta2": 1660, "% Salidas": 0, "% Inv Actual": 0.423611, "Qty Req GLM": 0, "Inv Nacional": 1226, "Six General": 17280, "Sems Inv": 0.070949, "Pallets": 0.09881, "Qty Tarimas": 16800, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Corto", "Comentarios": null}, {"Concat": "CL0303MTAL", "Codigo": "CL0303", "Descripcion": "CLAMSHELL BLU 11OZ SWEET BLISS", "Almacen": "MTAL", "Qty 1.5wk": 1800, "Salidas": 840, "Delta": 960, "Inv General": 189000, "Delta2": -188040, "% Salidas": 0.466667, "% Inv Actual": 105, "Qty Req GLM": 0, "Inv Nacional": 207740, "Six General": 10920, "Sems Inv": 19.02381, "Pallets": -18.654762, "Qty Tarimas": 10080, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0283MREY", "Codigo": "CL0283", "Descripcion": "CLAMSHELL BLK 6OZ BP ORG", "Almacen": "MREY", "Qty 1.5wk": 34560, "Salidas": 6000, "Delta": 28560, "Inv General": 31800, "Delta2": -3240, "% Salidas": 0.173611, "% Inv Actual": 0.920139, "Qty Req GLM": 0, "Inv Nacional": 89400, "Six General": 34560, "Sems Inv": 2.586806, "Pallets": -0.192857, "Qty Tarimas": 16800, "Inv GLM": 72000, "Decision Interna": "Traslado", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0312MTAL", "Codigo": "CL0312", "Descripcion": "CLAMSHELL BLU 6OZ SWEET BLISS CV", "Almacen": "MTAL", "Qty 1.5wk": 7200, "Salidas": 1800, "Delta": 5400, "Inv General": 147600, "Delta2": -142200, "% Salidas": 0.25, "% Inv Actual": 20.5, "Qty Req GLM": 0, "Inv Nacional": 147600, "Six General": 7200, "Sems Inv": 20.5, "Pallets": -8.464286, "Qty Tarimas": 16800, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0315MTAL", "Codigo": "CL0315", "Descripcion": "CLAMSHELL BLU 18OZ RESERVE NBP CV", "Almacen": "MTAL", "Qty 1.5wk": 60480, "Salidas": 10368, "Delta": 50112, "Inv General": 54444, "Delta2": -4332, "% Salidas": 0.171429, "% Inv Actual": 0.900198, "Qty Req GLM": 0, "Inv Nacional": 74130, "Six General": 86400, "Sems Inv": 0.857986, "Pallets": -0.722, "Qty Tarimas": 6000, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0318MTAL", "Codigo": "CL0318", "Descripcion": "CLAMSHELL BLU 9.8OZ JUMBO HM CV", "Almacen": "MTAL", "Qty 1.5wk": 451584, "Salidas": 135120, "Delta": 316464, "Inv General": 256600, "Delta2": 59864, "% Salidas": 0.299213, "% Inv Actual": 0.568222, "Qty Req GLM": 0, "Inv Nacional": 338320, "Six General": 844416, "Sems Inv": 0.400656, "Pallets": 6.235833, "Qty Tarimas": 9600, "Inv GLM": 144000, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "CL0321MTAL", "Codigo": "CL0321", "Descripcion": "CLAMSHELL RAS 6OZ HM CV", "Almacen": "MTAL", "Qty 1.5wk": 115200, "Salidas": 600, "Delta": 114600, "Inv General": 118200, "Delta2": -3600, "% Salidas": 0.005208, "% Inv Actual": 1.026042, "Qty Req GLM": 31920, "Inv Nacional": 415682, "Six General": 270720, "Sems Inv": 1.535468, "Pallets": -0.214286, "Qty Tarimas": 16800, "Inv GLM": 72000, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0333MTAL", "Codigo": "CL0333", "Descripcion": "CLAMSHELL BLU 1 PINTA SF CV", "Almacen": "MTAL", "Qty 1.5wk": 17280, "Salidas": 6000, "Delta": 11280, "Inv General": 10200, "Delta2": 1080, "% Salidas": 0.347222, "% Inv Actual": 0.590278, "Qty Req GLM": 0, "Inv Nacional": 10200, "Six General": 17280, "Sems Inv": 0.590278, "Pallets": 0.12, "Qty Tarimas": 9000, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CV0001MTAL", "Codigo": "CV0001", "Descripcion": "CLAMSHELL 6Oz BLU SIN ETIQUETA", "Almacen": "MTAL", "Qty 1.5wk": 84384, "Salidas": null, "Delta": 84384, "Inv General": 251170, "Delta2": -166786, "% Salidas": 0, "% Inv Actual": 2.976512, "Qty Req GLM": 0, "Inv Nacional": 570082, "Six General": 84384, "Sems Inv": 6.755807, "Pallets": -9.927738, "Qty Tarimas": 16800, "Inv GLM": 76800, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CV0006MTAL", "Codigo": "CV0006", "Descripcion": "CLAMSHELL 4,4Oz BLK SIN ETIQUETA CON PAD", "Almacen": "MTAL", "Qty 1.5wk": 18720, "Salidas": null, "Delta": 18720, "Inv General": 21760, "Delta2": -3040, "% Salidas": 0, "% Inv Actual": 1.162393, "Qty Req GLM": 0, "Inv Nacional": 145843, "Six General": 18720, "Sems Inv": 7.790759, "Pallets": -0.131034, "Qty Tarimas": 23200, "Inv GLM": 43200, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CV0009MTAL", "Codigo": "CV0009", "Descripcion": "CLAMSHELL 18Oz BLU CUADRADO SIN ETIQUETA", "Almacen": "MTAL", "Qty 1.5wk": 163200, "Salidas": null, "Delta": 163200, "Inv General": 61261, "Delta2": 101939, "% Salidas": 0, "% Inv Actual": 0.375374, "Qty Req GLM": 0, "Inv Nacional": 376650, "Six General": 379200, "Sems Inv": 0.993275, "Pallets": 10.725905, "Qty Tarimas": 9504, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Corto", "Comentarios": null}, {"Concat": "CV0011MTAL", "Codigo": "CV0011", "Descripcion": "CLAMSHELL 18Oz BLU RECTANGULAR SIN ETIQUETA", "Almacen": "MTAL", "Qty 1.5wk": 69120, "Salidas": null, "Delta": 69120, "Inv General": 130886, "Delta2": -61766, "% Salidas": 0, "% Inv Actual": 1.893605, "Qty Req GLM": 0, "Inv Nacional": 479156, "Six General": 82944, "Sems Inv": 5.776861, "Pallets": -6.498948, "Qty Tarimas": 9504, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CV0023MTAL", "Codigo": "CV0023", "Descripcion": "CLAMSHELL 12OZ RAS C/PAD DIVISION", "Almacen": "MTAL", "Qty 1.5wk": 23040, "Salidas": null, "Delta": 23040, "Inv General": 175555, "Delta2": -152515, "% Salidas": 0, "% Inv Actual": 7.619575, "Qty Req GLM": 0, "Inv Nacional": 440109, "Six General": 43200, "Sems Inv": 10.187708, "Pallets": -14.121759, "Qty Tarimas": 10800, "Inv GLM": 153600, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "PA0048MTAL", "Codigo": "PA0048", "Descripcion": "INTERLOCK GEN-CAN2", "Almacen": "MTAL", "Qty 1.5wk": 3000, "Salidas": null, "Delta": 3000, "Inv General": 3383, "Delta2": -383, "% Salidas": 0, "% Inv Actual": 1.127667, "Qty Req GLM": 3000, "Inv Nacional": 7395, "Six General": 10500, "Sems Inv": 0.704286, "Pallets": -0.766, "Qty Tarimas": 500, "Inv GLM": 4175, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "BX0001MTUX", "Codigo": "BX0001", "Descripcion": "CAJA DE CARTON GEN 12X6OZ BP", "Almacen": "MTUX", "Qty 1.5wk": 44448, "Salidas": 1050, "Delta": 43398, "Inv General": 24300, "Delta2": 19098, "% Salidas": 0.023623, "% Inv Actual": 0.546706, "Qty Req GLM": 12000, "Inv Nacional": 176667, "Six General": 178405, "Sems Inv": 0.990258, "Pallets": 12.732, "Qty Tarimas": 1500, "Inv GLM": 26400, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "BX0006MTUX", "Codigo": "BX0006", "Descripcion": "CAJA DE CARTON BLU 12X1PT BP", "Almacen": "MTUX", "Qty 1.5wk": 22080, "Salidas": 11000, "Delta": 11080, "Inv General": 11000, "Delta2": 80, "% Salidas": 0.498188, "% Inv Actual": 0.498188, "Qty Req GLM": 6100, "Inv Nacional": 51168, "Six General": 121172, "Sems Inv": 0.422276, "Pallets": 0.08, "Qty Tarimas": 1000, "Inv GLM": 33792, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "CL0299MPER", "Codigo": "CL0299", "Descripcion": "CLAMSHELL 1 PINTA BLU FRUITITS CV", "Almacen": "MPER", "Qty 1.5wk": 145152, "Salidas": 0, "Delta": 145152, "Inv General": 2325, "Delta2": 142827, "% Salidas": 0, "% Inv Actual": 0.016018, "Qty Req GLM": 0, "Inv Nacional": 94190, "Six General": 145152, "Sems Inv": 0.648906, "Pallets": 14.877812, "Qty Tarimas": 9600, "Inv GLM": 0, "Decision Interna": "Traslado", "Decision Externa": "Corto", "Comentarios": "MTAL-MREY"}, {"Concat": "BX0047MTUX", "Codigo": "BX0047", "Descripcion": "CAJA DE CARTON BLU 12X1 PINTA THE FRUITIST", "Almacen": "MTUX", "Qty 1.5wk": 16128, "Salidas": 1000, "Delta": 15128, "Inv General": 2000, "Delta2": 13128, "% Salidas": 0.062004, "% Inv Actual": 0.124008, "Qty Req GLM": 0, "Inv Nacional": 8254, "Six General": 44352, "Sems Inv": 0.186102, "Pallets": 13.128, "Qty Tarimas": 1000, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Corto", "Comentarios": null}, {"Concat": "CL0309MTAL", "Codigo": "CL0309", "Descripcion": "CLAMSHELL RAS 18OZ SWEET BLISS CV", "Almacen": "MTAL", "Qty 1.5wk": 17592, "Salidas": 4620, "Delta": 12972, "Inv General": 8783, "Delta2": 4189, "% Salidas": 0.262619, "% Inv Actual": 0.499261, "Qty Req GLM": 0, "Inv Nacional": 98651, "Six General": 25872, "Sems Inv": 3.813041, "Pallets": 0.750717, "Qty Tarimas": 5580, "Inv GLM": 0, "Decision Interna": "Traslado", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0321MTUX", "Codigo": "CL0321", "Descripcion": "CLAMSHELL RAS 6OZ HM CV", "Almacen": "MTUX", "Qty 1.5wk": 34560, "Salidas": 30600, "Delta": 3960, "Inv General": 18000, "Delta2": -14040, "% Salidas": 0.885417, "% Inv Actual": 0.520833, "Qty Req GLM": 0, "Inv Nacional": 415682, "Six General": 270720, "Sems Inv": 1.535468, "Pallets": -0.835714, "Qty Tarimas": 16800, "Inv GLM": 72000, "Decision Interna": "Traslado", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0341MREY", "Codigo": "CL0341", "Descripcion": "CLAMSHELL RAS 6OZ HM ORG", "Almacen": "MREY", "Qty 1.5wk": 46080, "Salidas": 33600, "Delta": 12480, "Inv General": 1800, "Delta2": 10680, "% Salidas": 0.729167, "% Inv Actual": 0.039062, "Qty Req GLM": 33600, "Inv Nacional": 352740, "Six General": 149760, "Sems Inv": 2.355369, "Pallets": 0.635714, "Qty Tarimas": 16800, "Inv GLM": 0, "Decision Interna": "Traslado", "Decision Externa": "Corto", "Comentarios": "MLAJ-MREY"}, {"Concat": "CL0285MTUX", "Codigo": "CL0285", "Descripcion": "CLAMSHELL RAS 6OZ BP C-PAD FRUTA NIC", "Almacen": "MTUX", "Qty 1.5wk": 147456, "Salidas": 6200, "Delta": 141256, "Inv General": 306600, "Delta2": -165344, "% Salidas": 0.042046, "% Inv Actual": 2.079264, "Qty Req GLM": 0, "Inv Nacional": 1028845, "Six General": 455472, "Sems Inv": 2.258855, "Pallets": -8.611667, "Qty Tarimas": 19200, "Inv GLM": 1620000, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0313MTUX", "Codigo": "CL0313", "Descripcion": "CLAMSHELL BLU 9.8OZ JUMBO THE FRUITIST CV", "Almacen": "MTUX", "Qty 1.5wk": 96768, "Salidas": 0, "Delta": 96768, "Inv General": 0, "Delta2": 96768, "% Salidas": 0, "% Inv Actual": 0, "Qty Req GLM": 0, "Inv Nacional": 1800, "Six General": 193536, "Sems Inv": 0.009301, "Pallets": 12.6, "Qty Tarimas": 7680, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Corto", "Comentarios": null}, {"Concat": "CL0314MTUX", "Codigo": "CL0314", "Descripcion": "CLAMSHELL BLU 9.8OZ JUMBO NBP CV", "Almacen": "MTUX", "Qty 1.5wk": 131328, "Salidas": null, "Delta": 131328, "Inv General": 121200, "Delta2": 10128, "% Salidas": 0, "% Inv Actual": 0.92288, "Qty Req GLM": 0, "Inv Nacional": 567263, "Six General": 155520, "Sems Inv": 3.647524, "Pallets": 1.004762, "Qty Tarimas": 10080, "Inv GLM": 172800, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "CL0320MTUX", "Codigo": "CL0320", "Descripcion": "CLAMSHELL BLU 18OZ FRUITIST RECTANGULAR", "Almacen": "MTUX", "Qty 1.5wk": 64512, "Salidas": 0, "Delta": 64512, "Inv General": 0, "Delta2": 64512, "% Salidas": 0, "% Inv Actual": 0, "Qty Req GLM": 0, "Inv Nacional": 18040, "Six General": 225792, "Sems Inv": 0.079897, "Pallets": 9.487059, "Qty Tarimas": 6800, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Corto", "Comentarios": null}, {"Concat": "CL0341MSAY", "Codigo": "CL0341", "Descripcion": "CLAMSHELL RAS 6OZ HM ORG", "Almacen": "MSAY", "Qty 1.5wk": 92160, "Salidas": null, "Delta": 92160, "Inv General": 59400, "Delta2": 32760, "% Salidas": 0, "% Inv Actual": 0.644531, "Qty Req GLM": 0, "Inv Nacional": 352740, "Six General": 149760, "Sems Inv": 2.355369, "Pallets": 1.95, "Qty Tarimas": 16800, "Inv GLM": 0, "Decision Interna": "Traslado", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CL0341MTUX", "Codigo": "CL0341", "Descripcion": "CLAMSHELL RAS 6OZ HM ORG", "Almacen": "MTUX", "Qty 1.5wk": 11520, "Salidas": null, "Delta": 11520, "Inv General": 120000, "Delta2": -108480, "% Salidas": 0, "% Inv Actual": 10.416667, "Qty Req GLM": 0, "Inv Nacional": 352740, "Six General": 149760, "Sems Inv": 2.355369, "Pallets": -6.457143, "Qty Tarimas": 16800, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CV0011MTUX", "Codigo": "CV0011", "Descripcion": "CLAMSHELL 18Oz BLU RECTANGULAR SIN ETIQUETA", "Almacen": "MTUX", "Qty 1.5wk": 6912, "Salidas": null, "Delta": 6912, "Inv General": 25000, "Delta2": -18088, "% Salidas": 0, "% Inv Actual": 3.616898, "Qty Req GLM": 0, "Inv Nacional": 479156, "Six General": 82944, "Sems Inv": 5.776861, "Pallets": -1.903199, "Qty Tarimas": 9504, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CV0013MTUX", "Codigo": "CV0013", "Descripcion": "CLAMSHELL 1PT BLU RECTANGULAR SIN ETIQUETA", "Almacen": "MTUX", "Qty 1.5wk": 123264, "Salidas": 3200, "Delta": 120064, "Inv General": 183600, "Delta2": -63536, "% Salidas": 0.025961, "% Inv Actual": 1.489486, "Qty Req GLM": 0, "Inv Nacional": 551744, "Six General": 123264, "Sems Inv": 4.476116, "Pallets": -9.343529, "Qty Tarimas": 6800, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Cubierto", "Comentarios": null}, {"Concat": "CV0023MTUX", "Codigo": "CV0023", "Descripcion": "CLAMSHELL 12OZ RAS C/PAD DIVISION", "Almacen": "MTUX", "Qty 1.5wk": 14400, "Salidas": null, "Delta": 14400, "Inv General": 7200, "Delta2": 7200, "% Salidas": 0, "% Inv Actual": 0.5, "Qty Req GLM": 0, "Inv Nacional": 440109, "Six General": 43200, "Sems Inv": 10.187708, "Pallets": 0.666667, "Qty Tarimas": 10800, "Inv GLM": 153600, "Decision Interna": "Traslado", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "PA0048MTUX", "Codigo": "PA0048", "Descripcion": "INTERLOCK GEN-CAN2", "Almacen": "MTUX", "Qty 1.5wk": 3000, "Salidas": null, "Delta": 3000, "Inv General": 750, "Delta2": 2250, "% Salidas": 0, "% Inv Actual": 0.25, "Qty Req GLM": 0, "Inv Nacional": 7395, "Six General": 10500, "Sems Inv": 0.704286, "Pallets": 4.5, "Qty Tarimas": 500, "Inv GLM": 4175, "Decision Interna": "Sin acción", "Decision Externa": "GLM", "Comentarios": null}, {"Concat": "BX0047MTUX", "Codigo": "BX0047", "Descripcion": "CAJA DE CARTON BLU 12X1 PINTA THE FRUITIST", "Almacen": "MTUX", "Qty 1.5wk": 28224, "Salidas": 1000, "Delta": 27224, "Inv General": 2000, "Delta2": 25224, "% Salidas": 0.035431, "% Inv Actual": 0.070862, "Qty Req GLM": 0, "Inv Nacional": 8254, "Six General": 44352, "Sems Inv": 0.186102, "Pallets": 25.224, "Qty Tarimas": 1000, "Inv GLM": 0, "Decision Interna": "Sin acción", "Decision Externa": "Corto", "Comentarios": null}], "alm_stats": {"MMAZ": {"total": 6, "corto": 2, "cubierto": 4, "glm": 0}, "MPAZ": {"total": 5, "corto": 0, "cubierto": 4, "glm": 1}, "MPER": {"total": 22, "corto": 4, "cubierto": 11, "glm": 7}, "MQUI": {"total": 4, "corto": 2, "cubierto": 1, "glm": 1}, "MREY": {"total": 15, "corto": 2, "cubierto": 10, "glm": 3}, "MSAY": {"total": 8, "corto": 0, "cubierto": 7, "glm": 1}, "MTAL": {"total": 41, "corto": 6, "cubierto": 27, "glm": 8}, "MTUX": {"total": 18, "corto": 4, "cubierto": 9, "glm": 5}}, "inv_por_alm": {"MPER": 517983.0, "MMAZ": 65927.0, "MPAZ": 70302.0, "MTUX": 1187550.0, "MREY": 526460.0, "MTAL": 2807359.0, "MQUI": 93395.0, "MSAY": 461164.0}, "movs_chart": {"fechas": ["2026-03-14", "2026-03-15", "2026-03-16", "2026-03-17", "2026-03-18", "2026-03-19"], "almacenes": ["MABS", "MLAJ", "MMAZ", "MPAZ", "MPER", "MQUE", "MQUI", "MREY", "MSAY", "MTAC", "MTAL", "MTAN", "MTUX", "MZIR"], "data": {"MABS": [600, 0, 33450, 20400, 15600, 4550], "MLAJ": [49879, 0, 55334, 7298, 65070, 0], "MMAZ": [0, 17412, 21170, 17797, 8862, 0], "MPAZ": [7030, 0, 13170, 14575, 72450, 0], "MPER": [73784, 46816, 91763, 135844, 114563, 0], "MQUE": [695, 0, 16377, 3900, 6697, 0], "MQUI": [17818, 0, 19464, 7536, 15310, 0], "MREY": [35985, 0, 77456, 56586, 219402, 20090], "MSAY": [25820, 14720, 29950, 19248, 25815, 8387], "MTAC": [0, 0, 291600, 11900, 0, 0], "MTAL": [169558, 123053, 257889, 214924, 258628, 13799], "MTAN": [31201, 0, 0, 0, 8810, 0], "MTUX": [23975, 134466, 137352, 89918, 56870, 66200], "MZIR": [0, 0, 0, 58062, 5100, 0]}}, "wk_salidas": {"WK05": {"MABS": 101984.0, "MMAZ": 104040.0, "MPAZ": 103523.0, "MPER": 564069.0, "MQUE": 14700.0, "MREY": 691417.0, "MSAY": 134706.0, "MTAC": 2708538.0, "MTAL": 1314247.0, "MTAN": 2500.0, "MTUX": 227737.0}, "WK06": {"MABS": 114007.0, "MMAZ": 51675.0, "MPAZ": 56382.0, "MPER": 667470.0, "MQUE": 19300.0, "MREY": 210879.0, "MSAY": 209750.0, "MTAL": 1506197.0, "MTAN": 4800.0, "MTUX": 266587.0, "MZIR": 25634.0}, "WK07": {"MMAZ": 119649.0, "MPAZ": 21263.0, "MPER": 381819.0, "MQUI": 8856.0, "MREY": 96568.0, "5322": 154611.0, "MTAL": 477631.0, "MTUX": 43715.0, "MABS": 300.0, "MSAY": 138024.0}, "WK08": {"MMAZ": 9340.0, "MPAZ": 36250.0, "MPER": 306694.0, "MQUE": 10400.0, "MQUI": 31582.0, "MREY": 229220.0, "MSAY": 86301.0, "MTAL": 448235.0, "MTUX": 182960.0}, "WK09": {"MABS": 55250.0, "MMAZ": 37892.0, "MPAZ": 36250.0, "MPER": 281494.0, "MQUE": 26000.0, "MQUI": 31582.0, "MREY": 229220.0, "MSAY": 97351.0, "MTAL": 526698.0, "MTUX": 185100.0}, "WK10": {"MPER": 372775.0, "MSAY": 195476.0, "MTAL": 1558264.0, "MTUX": 619485.0, "MREY": 119068.0, "MMAZ": 64019.0, "MPAZ": 39850.0, "MQUI": 70373.0}, "WK11": {"MMAZ": 78114.0, "MPAZ": 15100.0, "MPER": 409175.0, "MQUI": 55492.0, "MREY": 173978.0, "MSAY": 192991.0, "MTAL": 1100960.0, "MTUX": 362876.0}, "WK12": {"MPER": 217564.0, "MMAZ": 16490.0, "MPAZ": 23650.0, "MTUX": 174450.0, "MREY": 127895.0, "MTAL": 393943.0, "MQUI": 2800.0, "MSAY": 41901.0}}, "wks_disponibles": ["WK05", "WK06", "WK07", "WK08", "WK09", "WK10", "WK11", "WK12"], "top_bx": [{"label": "BX0006 (MPER)", "salidas": 20249.0, "desc": "CAJA DE CARTON BLU 12X1PT BP"}, {"label": "BX0006 (MTAL)", "salidas": 19075.0, "desc": "CAJA DE CARTON BLU 12X1PT BP"}, {"label": "BX0029 (MTUX)", "salidas": 12500.0, "desc": "CAJA DE CARTON RAS 6 OZ NORTH BAY"}, {"label": "BX0006 (MTUX)", "salidas": 11000.0, "desc": "CAJA DE CARTON BLU 12X1PT BP"}, {"label": "BX0005 (MTAL)", "salidas": 5625.0, "desc": "CAJA DE CARTON BLU 12X18OZ BP"}, {"label": "BX0045 (MTAL)", "salidas": 4000.0, "desc": "CAJA DE CARTON 1 PINTA/8X18OZ BLU BP A"}, {"label": "BX0003 (MPER)", "salidas": 3000.0, "desc": "CAJA DE CARTON BLU 12X4.4OZ BP"}, {"label": "BX0003 (MTAL)", "salidas": 2450.0, "desc": "CAJA DE CARTON BLU 12X4.4OZ BP"}, {"label": "BX0005 (MQUI)", "salidas": 2000.0, "desc": "CAJA DE CARTON BLU 12X18OZ BP"}, {"label": "BX0001 (MTAL)", "salidas": 1800.0, "desc": "CAJA DE CARTON GEN 12X6OZ BP"}], "top_cl": [{"label": "CL0318 (MTAL)", "salidas": 135120.0, "desc": "CLAMSHELL BLU 9.8OZ JUMBO HM CV"}, {"label": "CL0318 (MPER)", "salidas": 92000.0, "desc": "CLAMSHELL BLU 9.8OZ JUMBO HM CV"}, {"label": "CL0256 (MTAL)", "salidas": 63000.0, "desc": "CLAMSHELL BLU 6OZ BP FRUTA"}, {"label": "CL0285 (MREY)", "salidas": 49800.0, "desc": "CLAMSHELL RAS 6OZ BP C-PAD FRUTA NIC"}, {"label": "CL0274 (MTUX)", "salidas": 48000.0, "desc": "CLAMSHELL RAS 6OZ NORTH BAY ORG"}, {"label": "CL0277 (MTUX)", "salidas": 46100.0, "desc": "CLAMSHELL RAS 12OZ NORTH BAY CV"}, {"label": "CL0266 (MTAL)", "salidas": 42420.0, "desc": "CLAMSHELL BLU 1PT FLAT BP FRUTA"}, {"label": "CL0266 (MPER)", "salidas": 34268.0, "desc": "CLAMSHELL BLU 1PT FLAT BP FRUTA"}, {"label": "CL0341 (MREY)", "salidas": 33600.0, "desc": "CLAMSHELL RAS 6OZ HM ORG"}, {"label": "CL0321 (MTUX)", "salidas": 30600.0, "desc": "CLAMSHELL RAS 6OZ HM CV"}], "glm": [{"Concat": "BX0003MPER", "Codigo": "BX0003", "Descripcion": "CAJA DE CARTON BLU 12X4.4OZ BP", "Almacen": "MPER", "Inv General": 3067, "Qty Req GLM": 1400, "Sems Inv": 3.416922, "Qty 1.5wk": 6400, "Delta2": 333, "% Inv Actual": 0.479219, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "BX0029MPER", "Codigo": "BX0029", "Descripcion": "CAJA DE CARTON RAS 6 OZ NORTH BAY", "Almacen": "MPER", "Inv General": 0, "Qty Req GLM": 13500, "Sems Inv": 1.722254, "Qty 1.5wk": 7344, "Delta2": 7344, "% Inv Actual": 0, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "PA0048MPAZ", "Codigo": "PA0048", "Descripcion": "INTERLOCK GEN-CAN2", "Almacen": "MPAZ", "Inv General": 250, "Qty Req GLM": 0, "Sems Inv": 0.704286, "Qty 1.5wk": 500, "Delta2": 250, "% Inv Actual": 0.5, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "BX0031MPER", "Codigo": "BX0031", "Descripcion": "CAJA DE CARTON 8X18OZ GEN VERTICAL", "Almacen": "MPER", "Inv General": 0, "Qty Req GLM": 6000, "Sems Inv": 2.827794, "Qty 1.5wk": 12096, "Delta2": 12096, "% Inv Actual": 0, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "BX0006MPER", "Codigo": "BX0006", "Descripcion": "CAJA DE CARTON BLU 12X1PT BP", "Almacen": "MPER", "Inv General": 0, "Qty Req GLM": 8000, "Sems Inv": 0.422276, "Qty 1.5wk": 28468, "Delta2": 8219, "% Inv Actual": 0, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "BX0040MTAL", "Codigo": "BX0040", "Descripcion": "CAJA DE CARTON 08X12OZ BLK GENERICA", "Almacen": "MTAL", "Inv General": 0, "Qty Req GLM": 700, "Sems Inv": 0.590278, "Qty 1.5wk": 720, "Delta2": 720, "% Inv Actual": 0, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "CL0318MPER", "Codigo": "CL0318", "Descripcion": "CLAMSHELL BLU 9.8OZ JUMBO HM CV", "Almacen": "MPER", "Inv General": 0, "Qty Req GLM": 0, "Sems Inv": 0.400656, "Qty 1.5wk": 290304, "Delta2": 198304, "% Inv Actual": 0, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "CL0349MPER", "Codigo": "CL0349", "Descripcion": "CLAMSHELL BLK 6OZ NORTH BAY CV", "Almacen": "MPER", "Inv General": 0, "Qty Req GLM": 88320, "Sems Inv": 0, "Qty 1.5wk": 88128, "Delta2": 88128, "% Inv Actual": 0, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "PA0048MPER", "Codigo": "PA0048", "Descripcion": "INTERLOCK GEN-CAN2", "Almacen": "MPER", "Inv General": 750, "Qty Req GLM": 2000, "Sems Inv": 0.704286, "Qty 1.5wk": 2000, "Delta2": 1250, "% Inv Actual": 0.375, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "CL0318MQUI", "Codigo": "CL0318", "Descripcion": "CLAMSHELL BLU 9.8OZ JUMBO HM CV", "Almacen": "MQUI", "Inv General": 79200, "Qty Req GLM": 0, "Sems Inv": 0.400656, "Qty 1.5wk": 102528, "Delta2": 23328, "% Inv Actual": 0.772472, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "BX0006MREY", "Codigo": "BX0006", "Descripcion": "CAJA DE CARTON BLU 12X1PT BP", "Almacen": "MREY", "Inv General": 0, "Qty Req GLM": 8000, "Sems Inv": 0.422276, "Qty 1.5wk": 3010, "Delta2": 3010, "% Inv Actual": 0, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "BX0049MREY", "Codigo": "BX0049", "Descripcion": "CAJA DE CARTON BLK 6OZ HV GENERICA", "Almacen": "MREY", "Inv General": 1325, "Qty Req GLM": 3300, "Sems Inv": 0.995896, "Qty 1.5wk": 2880, "Delta2": 1055, "% Inv Actual": 0.460069, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "PA0048MREY", "Codigo": "PA0048", "Descripcion": "INTERLOCK GEN-CAN2", "Almacen": "MREY", "Inv General": 0, "Qty Req GLM": 0, "Sems Inv": 0.704286, "Qty 1.5wk": 2000, "Delta2": 2000, "% Inv Actual": 0, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "BX0001MSAY", "Codigo": "BX0001", "Descripcion": "CAJA DE CARTON GEN 12X6OZ BP", "Almacen": "MSAY", "Inv General": 14270, "Qty Req GLM": 7500, "Sems Inv": 0.990258, "Qty 1.5wk": 24294, "Delta2": 8424, "% Inv Actual": 0.587388, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "BX0001MTAL", "Codigo": "BX0001", "Descripcion": "CAJA DE CARTON GEN 12X6OZ BP", "Almacen": "MTAL", "Inv General": 52786, "Qty Req GLM": 36000, "Sems Inv": 0.990258, "Qty 1.5wk": 92491, "Delta2": 37905, "% Inv Actual": 0.570715, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "BX0006MTAL", "Codigo": "BX0006", "Descripcion": "CAJA DE CARTON BLU 12X1PT BP", "Almacen": "MTAL", "Inv General": 17000, "Qty Req GLM": 24000, "Sems Inv": 0.422276, "Qty 1.5wk": 55884, "Delta2": 19809, "% Inv Actual": 0.304202, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "BX0045MTAL", "Codigo": "BX0045", "Descripcion": "CAJA DE CARTON 1 PINTA/8X18OZ BLU BP ARMADO AUTOMÁTICO", "Almacen": "MTAL", "Inv General": 13716, "Qty Req GLM": 0, "Sems Inv": 0.6858, "Qty 1.5wk": 20000, "Delta2": 2284, "% Inv Actual": 0.6858, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "BX0048MTAL", "Codigo": "BX0048", "Descripcion": "CAJA DE CARTON BLU 18OZ BLU RESERVE NBP", "Almacen": "MTAL", "Inv General": 1949, "Qty Req GLM": 1000, "Sems Inv": 1.149861, "Qty 1.5wk": 5040, "Delta2": 2691, "% Inv Actual": 0.386706, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "BX0049MTAL", "Codigo": "BX0049", "Descripcion": "CAJA DE CARTON BLK 6OZ HV GENERICA", "Almacen": "MTAL", "Inv General": 0, "Qty Req GLM": 3465, "Sems Inv": 0.995896, "Qty 1.5wk": 3456, "Delta2": 3456, "% Inv Actual": 0, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "CL0270MTAL", "Codigo": "CL0270", "Descripcion": "CLAMSHELL BLK 6OZ FRUTA", "Almacen": "MTAL", "Inv General": 22200, "Qty Req GLM": 16800, "Sems Inv": 2.553892, "Qty 1.5wk": 41472, "Delta2": 19272, "% Inv Actual": 0.535301, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "CL0318MTAL", "Codigo": "CL0318", "Descripcion": "CLAMSHELL BLU 9.8OZ JUMBO HM CV", "Almacen": "MTAL", "Inv General": 256600, "Qty Req GLM": 0, "Sems Inv": 0.400656, "Qty 1.5wk": 451584, "Delta2": 59864, "% Inv Actual": 0.568222, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "BX0001MTUX", "Codigo": "BX0001", "Descripcion": "CAJA DE CARTON GEN 12X6OZ BP", "Almacen": "MTUX", "Inv General": 24300, "Qty Req GLM": 12000, "Sems Inv": 0.990258, "Qty 1.5wk": 44448, "Delta2": 19098, "% Inv Actual": 0.546706, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "BX0006MTUX", "Codigo": "BX0006", "Descripcion": "CAJA DE CARTON BLU 12X1PT BP", "Almacen": "MTUX", "Inv General": 11000, "Qty Req GLM": 6100, "Sems Inv": 0.422276, "Qty 1.5wk": 22080, "Delta2": 80, "% Inv Actual": 0.498188, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "CL0314MTUX", "Codigo": "CL0314", "Descripcion": "CLAMSHELL BLU 9.8OZ JUMBO NBP CV", "Almacen": "MTUX", "Inv General": 121200, "Qty Req GLM": 0, "Sems Inv": 3.647524, "Qty 1.5wk": 131328, "Delta2": 10128, "% Inv Actual": 0.92288, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "CV0023MTUX", "Codigo": "CV0023", "Descripcion": "CLAMSHELL 12OZ RAS C/PAD DIVISION", "Almacen": "MTUX", "Inv General": 7200, "Qty Req GLM": 0, "Sems Inv": 10.187708, "Qty 1.5wk": 14400, "Delta2": 7200, "% Inv Actual": 0.5, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}, {"Concat": "PA0048MTUX", "Codigo": "PA0048", "Descripcion": "INTERLOCK GEN-CAN2", "Almacen": "MTUX", "Inv General": 750, "Qty Req GLM": 0, "Sems Inv": 0.704286, "Qty 1.5wk": 3000, "Delta2": 2250, "% Inv Actual": 0.25, "OC": "—", "Folio SAP": "—", "Estatus Carga": "—", "Dia Carga": "—", "Estatus Almacen": "—"}], "traslados": [{"Concat": "BX0003MPER", "Codigo": "BX0003", "Descripcion": "CAJA DE CARTON BLU 12X4.4OZ BP", "Almacen": "MPER", "Inv General": 3067, "Inv Nacional": 35741, "Sems Inv": 3.416922, "Qty 1.5wk": 6400, "Delta2": 333, "% Inv Actual": 0.479219, "Decision Externa": "GLM", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "BX0029MPER", "Codigo": "BX0029", "Descripcion": "CAJA DE CARTON RAS 6 OZ NORTH BAY", "Almacen": "MPER", "Inv General": 0, "Inv Nacional": 47920, "Sems Inv": 1.722254, "Qty 1.5wk": 7344, "Delta2": 7344, "% Inv Actual": 0, "Decision Externa": "GLM", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "BX0029MTUX", "Codigo": "BX0029", "Descripcion": "CAJA DE CARTON RAS 6 OZ NORTH BAY", "Almacen": "MTUX", "Inv General": 5350, "Inv Nacional": 47920, "Sems Inv": 1.722254, "Qty 1.5wk": 15040, "Delta2": -2810, "% Inv Actual": 0.355718, "Decision Externa": "Cubierto", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "BX0031MPER", "Codigo": "BX0031", "Descripcion": "CAJA DE CARTON 8X18OZ GEN VERTICAL", "Almacen": "MPER", "Inv General": 0, "Inv Nacional": 34205, "Sems Inv": 2.827794, "Qty 1.5wk": 12096, "Delta2": 12096, "% Inv Actual": 0, "Decision Externa": "GLM", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "BX0040MTAL", "Codigo": "BX0040", "Descripcion": "CAJA DE CARTON 08X12OZ BLK GENERICA", "Almacen": "MTAL", "Inv General": 0, "Inv Nacional": 425, "Sems Inv": 0.590278, "Qty 1.5wk": 720, "Delta2": 720, "% Inv Actual": 0, "Decision Externa": "GLM", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CL0243MREY", "Codigo": "CL0243", "Descripcion": "CLAMSHELL RAS 4.4OZ BP CV FRUTA", "Almacen": "MREY", "Inv General": 30600, "Inv Nacional": 323483, "Sems Inv": 3.336252, "Qty 1.5wk": 96960, "Delta2": 47760, "% Inv Actual": 0.315594, "Decision Externa": "Corto", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CL0255MPAZ", "Codigo": "CL0255", "Descripcion": "CLAMSHELL BLU 9.8 JUMBO FRUTA", "Almacen": "MPAZ", "Inv General": 12132, "Inv Nacional": 309992, "Sems Inv": 3.324668, "Qty 1.5wk": 14040, "Delta2": -6192, "% Inv Actual": 0.864103, "Decision Externa": "Cubierto", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CL0256MTAL", "Codigo": "CL0256", "Descripcion": "CLAMSHELL BLU 6OZ BP FRUTA", "Almacen": "MTAL", "Inv General": 214632, "Inv Nacional": 1034054, "Sems Inv": 1.265548, "Qty 1.5wk": 418440, "Delta2": 140808, "% Inv Actual": 0.512934, "Decision Externa": "Cubierto", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CL0256MTUX", "Codigo": "CL0256", "Descripcion": "CLAMSHELL BLU 6OZ BP FRUTA", "Almacen": "MTUX", "Inv General": 274200, "Inv Nacional": 1034054, "Sems Inv": 1.265548, "Qty 1.5wk": 311040, "Delta2": 23040, "% Inv Actual": 0.881559, "Decision Externa": "Cubierto", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CL0260MTAL", "Codigo": "CL0260", "Descripcion": "CLAMSHELL BLU 6OZ SUNNY CV FRUTA", "Almacen": "MTAL", "Inv General": 1926, "Inv Nacional": 4926, "Sems Inv": 0.071267, "Qty 1.5wk": 69120, "Delta2": 53094, "% Inv Actual": 0.027865, "Decision Externa": "Corto", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CL0266MPER", "Codigo": "CL0266", "Descripcion": "CLAMSHELL BLU 1PT FLAT BP FRUTA", "Almacen": "MPER", "Inv General": 1600, "Inv Nacional": 106167, "Sems Inv": 2.559968, "Qty 1.5wk": 13824, "Delta2": -22044, "% Inv Actual": 0.115741, "Decision Externa": "Cubierto", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CL0266MTAL", "Codigo": "CL0266", "Descripcion": "CLAMSHELL BLU 1PT FLAT BP FRUTA", "Almacen": "MTAL", "Inv General": 7920, "Inv Nacional": 106167, "Sems Inv": 2.559968, "Qty 1.5wk": 27648, "Delta2": -22692, "% Inv Actual": 0.286458, "Decision Externa": "Cubierto", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CL0267MTAL", "Codigo": "CL0267", "Descripcion": "CLAMSHELL RAS 12OZ SUNNY CV FRUTA", "Almacen": "MTAL", "Inv General": 2218, "Inv Nacional": 16552, "Sems Inv": 0.821032, "Qty 1.5wk": 20160, "Delta2": 16892, "% Inv Actual": 0.11002, "Decision Externa": "Corto", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CL0270MTAL", "Codigo": "CL0270", "Descripcion": "CLAMSHELL BLK 6OZ FRUTA", "Almacen": "MTAL", "Inv General": 22200, "Inv Nacional": 105915, "Sems Inv": 2.553892, "Qty 1.5wk": 41472, "Delta2": 19272, "% Inv Actual": 0.535301, "Decision Externa": "GLM", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CL0274MTUX", "Codigo": "CL0274", "Descripcion": "CLAMSHELL RAS 6OZ NORTH BAY ORG", "Almacen": "MTUX", "Inv General": 76200, "Inv Nacional": 477362, "Sems Inv": 4.143767, "Qty 1.5wk": 115200, "Delta2": -9000, "% Inv Actual": 0.661458, "Decision Externa": "Cubierto", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CL0277MTUX", "Codigo": "CL0277", "Descripcion": "CLAMSHELL RAS 12OZ NORTH BAY CV", "Almacen": "MTUX", "Inv General": 10150, "Inv Nacional": 92781, "Sems Inv": 1.421278, "Qty 1.5wk": 32640, "Delta2": -23610, "% Inv Actual": 0.310968, "Decision Externa": "Cubierto", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CL0283MREY", "Codigo": "CL0283", "Descripcion": "CLAMSHELL BLK 6OZ BP ORG", "Almacen": "MREY", "Inv General": 31800, "Inv Nacional": 89400, "Sems Inv": 2.586806, "Qty 1.5wk": 34560, "Delta2": -3240, "% Inv Actual": 0.920139, "Decision Externa": "Cubierto", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CL0299MPER", "Codigo": "CL0299", "Descripcion": "CLAMSHELL 1 PINTA BLU FRUITITS CV", "Almacen": "MPER", "Inv General": 2325, "Inv Nacional": 94190, "Sems Inv": 0.648906, "Qty 1.5wk": 145152, "Delta2": 142827, "% Inv Actual": 0.016018, "Decision Externa": "Corto", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CL0309MTAL", "Codigo": "CL0309", "Descripcion": "CLAMSHELL RAS 18OZ SWEET BLISS CV", "Almacen": "MTAL", "Inv General": 8783, "Inv Nacional": 98651, "Sems Inv": 3.813041, "Qty 1.5wk": 17592, "Delta2": 4189, "% Inv Actual": 0.499261, "Decision Externa": "Cubierto", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CL0321MTUX", "Codigo": "CL0321", "Descripcion": "CLAMSHELL RAS 6OZ HM CV", "Almacen": "MTUX", "Inv General": 18000, "Inv Nacional": 415682, "Sems Inv": 1.535468, "Qty 1.5wk": 34560, "Delta2": -14040, "% Inv Actual": 0.520833, "Decision Externa": "Cubierto", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CL0341MREY", "Codigo": "CL0341", "Descripcion": "CLAMSHELL RAS 6OZ HM ORG", "Almacen": "MREY", "Inv General": 1800, "Inv Nacional": 352740, "Sems Inv": 2.355369, "Qty 1.5wk": 46080, "Delta2": 10680, "% Inv Actual": 0.039062, "Decision Externa": "Corto", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CL0341MSAY", "Codigo": "CL0341", "Descripcion": "CLAMSHELL RAS 6OZ HM ORG", "Almacen": "MSAY", "Inv General": 59400, "Inv Nacional": 352740, "Sems Inv": 2.355369, "Qty 1.5wk": 92160, "Delta2": 32760, "% Inv Actual": 0.644531, "Decision Externa": "Cubierto", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}, {"Concat": "CV0023MTUX", "Codigo": "CV0023", "Descripcion": "CLAMSHELL 12OZ RAS C/PAD DIVISION", "Almacen": "MTUX", "Inv General": 7200, "Inv Nacional": 440109, "Sems Inv": 10.187708, "Qty 1.5wk": 14400, "Delta2": 7200, "% Inv Actual": 0.5, "Decision Externa": "GLM", "Almacen Fuente": "", "Estatus": "Pendiente", "Comentarios": ""}], "compras": [{"Concat": "CL0243MREY", "Codigo": "CL0243", "Descripcion": "CLAMSHELL RAS 4.4OZ BP CV FRUTA", "Almacen": "MREY", "Inv General": 30600, "Sems Inv": 3.336252, "Qty 1.5wk": 96960, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "CL0260MTAL", "Codigo": "CL0260", "Descripcion": "CLAMSHELL BLU 6OZ SUNNY CV FRUTA", "Almacen": "MTAL", "Inv General": 1926, "Sems Inv": 0.071267, "Qty 1.5wk": 69120, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "BX0005MMAZ", "Codigo": "BX0005", "Descripcion": "CAJA DE CARTON BLU 12X18OZ BP", "Almacen": "MMAZ", "Inv General": 375, "Sems Inv": 0.95859, "Qty 1.5wk": 4000, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "CL0315MMAZ", "Codigo": "CL0315", "Descripcion": "CLAMSHELL BLU 18OZ RESERVE NBP CV", "Almacen": "MMAZ", "Inv General": 8166, "Sems Inv": 0.857986, "Qty 1.5wk": 25920, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "CL0302MPER", "Codigo": "CL0302", "Descripcion": "CLAMSHELL BLU 6OZ ECOPACK BP CV", "Almacen": "MPER", "Inv General": 6, "Sems Inv": 0.070949, "Qty 1.5wk": 14400, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "CL0313MPER", "Codigo": "CL0313", "Descripcion": "CLAMSHELL BLU 9.8OZ JUMBO THE FRUITIST CV", "Almacen": "MPER", "Inv General": 0, "Sems Inv": 0.009301, "Qty 1.5wk": 96768, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "CL0320MPER", "Codigo": "CL0320", "Descripcion": "CLAMSHELL BLU 18OZ FRUITIST RECTANGULAR", "Almacen": "MPER", "Inv General": 0, "Sems Inv": 0.079897, "Qty 1.5wk": 161280, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "BX0005MQUI", "Codigo": "BX0005", "Descripcion": "CAJA DE CARTON BLU 12X18OZ BP", "Almacen": "MQUI", "Inv General": 4250, "Sems Inv": 0.95859, "Qty 1.5wk": 12400, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "CL0267MTAL", "Codigo": "CL0267", "Descripcion": "CLAMSHELL RAS 12OZ SUNNY CV FRUTA", "Almacen": "MTAL", "Inv General": 2218, "Sems Inv": 0.821032, "Qty 1.5wk": 20160, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "CV0009MQUI", "Codigo": "CV0009", "Descripcion": "CLAMSHELL 18Oz BLU CUADRADO SIN ETIQUETA", "Almacen": "MQUI", "Inv General": 1595, "Sems Inv": 0.993275, "Qty 1.5wk": 148800, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "BX0005MTAL", "Codigo": "BX0005", "Descripcion": "CAJA DE CARTON BLU 12X18OZ BP", "Almacen": "MTAL", "Inv General": 1700, "Sems Inv": 0.95859, "Qty 1.5wk": 18258, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "BX0042MTAL", "Codigo": "BX0042", "Descripcion": "CAJA DE CARTON ECOPACK BP", "Almacen": "MTAL", "Inv General": 1, "Sems Inv": 0.521528, "Qty 1.5wk": 240, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "CL0302MTAL", "Codigo": "CL0302", "Descripcion": "CLAMSHELL BLU 6OZ ECOPACK BP CV", "Almacen": "MTAL", "Inv General": 1220, "Sems Inv": 0.070949, "Qty 1.5wk": 2880, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "CV0009MTAL", "Codigo": "CV0009", "Descripcion": "CLAMSHELL 18Oz BLU CUADRADO SIN ETIQUETA", "Almacen": "MTAL", "Inv General": 61261, "Sems Inv": 0.993275, "Qty 1.5wk": 163200, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "CL0299MPER", "Codigo": "CL0299", "Descripcion": "CLAMSHELL 1 PINTA BLU FRUITITS CV", "Almacen": "MPER", "Inv General": 2325, "Sems Inv": 0.648906, "Qty 1.5wk": 145152, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "BX0047MTUX", "Codigo": "BX0047", "Descripcion": "CAJA DE CARTON BLU 12X1 PINTA THE FRUITIST", "Almacen": "MTUX", "Inv General": 2000, "Sems Inv": 0.186102, "Qty 1.5wk": 16128, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "CL0341MREY", "Codigo": "CL0341", "Descripcion": "CLAMSHELL RAS 6OZ HM ORG", "Almacen": "MREY", "Inv General": 1800, "Sems Inv": 2.355369, "Qty 1.5wk": 46080, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "CL0313MTUX", "Codigo": "CL0313", "Descripcion": "CLAMSHELL BLU 9.8OZ JUMBO THE FRUITIST CV", "Almacen": "MTUX", "Inv General": 0, "Sems Inv": 0.009301, "Qty 1.5wk": 96768, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "CL0320MTUX", "Codigo": "CL0320", "Descripcion": "CLAMSHELL BLU 18OZ FRUITIST RECTANGULAR", "Almacen": "MTUX", "Inv General": 0, "Sems Inv": 0.079897, "Qty 1.5wk": 64512, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}, {"Concat": "BX0047MTUX", "Codigo": "BX0047", "Descripcion": "CAJA DE CARTON BLU 12X1 PINTA THE FRUITIST", "Almacen": "MTUX", "Inv General": 2000, "Sems Inv": 0.186102, "Qty 1.5wk": 28224, "Fecha Llegada": null, "Estatus": "Sin gestión", "Comentarios": null}]};
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+const fnum=n=>n==null?'–':(+n).toLocaleString('es-MX',{maximumFractionDigits:0});
+const fpct=n=>n==null?'–':(n*100).toFixed(1)+'%';
+const fdec=n=>n==null?'–':(+n).toFixed(2);
+const gc='#1e3d5c33', tc='#475569';
+const CHARTS={};
+function mk(id,cfg){if(CHARTS[id])CHARTS[id].destroy();const c=document.getElementById(id);if(!c)return;CHARTS[id]=new Chart(c,cfg);return CHARTS[id];}
+
+const ALM_COLORS={
+  MMAZ:'#3b82f6',MPAZ:'#a855f7',MPER:'#10b981',MQUI:'#eab308',
+  MREY:'#ef4444',MSAY:'#06b6d4',MTAL:'#6366f1',MTUX:'#8b5cf6',
+  MABS:'#f97316',MLAJ:'#ec4899',MQUE:'#84cc16',MTAC:'#14b8a6',
+  MTAN:'#f43f5e',MZIR:'#fb923c'
+};
+function almColor(a){return ALM_COLORS[a]||'#64748b';}
+
+function codBadge(c){if(!c)return'–';const p=c.substring(0,2);return`<span class="cod-${p}">${c}</span>`;}
+function decExt(d){const m={Corto:'b-corto',Cubierto:'b-cubierto',GLM:'b-glm'};return d?`<span class="${m[d]||''}">${d}</span>`:'–';}
+function decInt(d){const m={Traslado:'b-traslado','Sin acción':'b-sinaccion'};return d?`<span class="${m[d]||''}">${d}</span>`:'–';}
+function estStatus(e){const m={'Sin gestión':'b-singest','En tránsito':'b-transito','Recibido':'b-recibido'};return e?`<span class="${m[e]||'b-singest'}">${e}</span>`:'<span class="b-singest">Sin gestión</span>';}
+function nr(n,pct=false){
+  const v=pct?fpct(n):fnum(n);
+  if(n==null)return`<td style="text-align:right;color:#334155">–</td>`;
+  const cls=!pct&&typeof n==='number'?(n<0?'neg':n>0?'pos':''):'';
+  return`<td style="text-align:right"><span class="${cls}">${v}</span></td>`;
+}
+
+// ── HEADER ───────────────────────────────────────────────────────────────────
+document.getElementById('genDate').textContent='Almacenes M · '+D.gen_date;
+document.getElementById('hdrCnt').textContent=D.n_total+' SKU×Alm';
+document.getElementById('hdrWk').textContent=D.wk;
+document.getElementById('kTotal').textContent=D.n_total;
+document.getElementById('kCorto').textContent=D.n_corto;
+document.getElementById('kGlm').textContent=D.n_glm;
+document.getElementById('kCub').textContent=D.n_cubierto;
+document.getElementById('kAlm').textContent=D.n_alm;
+document.getElementById('wkLabelBX').textContent=D.wk;
+document.getElementById('wkLabelCL').textContent=D.wk;
+
+// ── TABS ─────────────────────────────────────────────────────────────────────
+const tabInit={};
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.pane').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    const id=t.dataset.t;
+    document.getElementById(id).classList.add('active');
+    if(!tabInit[id]){tabInit[id]=true; initTab(id);}
+  });
+});
+
+function initTab(id){
+  if(id==='resumen') buildResumen();
+  else if(id==='porAlm') buildPorAlm();
+  else if(id==='tabla') buildTabla();
+  else if(id==='demanda') buildDemanda();
+  else if(id==='glm') buildGlm();
+  else if(id==='traslados') buildTraslados();
+  else if(id==='compras') buildCompras();
+}
+
+// ══════════════════════════════════ RESUMEN ════════════════════════════════
+function buildResumen(){
+  // Donut
+  mk('chDona',{type:'doughnut',
+    data:{labels:['Corto','GLM','Cubierto'],
+      datasets:[{data:[D.n_corto,D.n_glm,D.n_cubierto],
+        backgroundColor:['#f87171','#fbbf24','#34d399'],
+        borderColor:'#0b1220',borderWidth:4}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+      plugins:{legend:{position:'right',labels:{color:'#94a3b8',font:{size:11},padding:12}},
+        tooltip:{callbacks:{label:c=>`${c.label}: ${c.raw} (${((c.raw/D.n_total)*100).toFixed(1)}%)`}}}}});
+
+  // Inv por almacen
+  const almsMrp=Object.keys(D.inv_por_alm).sort();
+  mk('chInvAlm',{type:'bar',
+    data:{labels:almsMrp,
+      datasets:[{label:'Inv General',data:almsMrp.map(a=>D.inv_por_alm[a]),
+        backgroundColor:almsMrp.map(a=>almColor(a)+'aa'),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fnum(c.raw)+' pzas'}}},
+      scales:{x:{ticks:{color:tc},grid:{color:gc}},y:{ticks:{color:tc,callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':v},grid:{color:gc}}}}});
+
+  // Top 10 BX
+  mk('chTopBX',{type:'bar',
+    data:{labels:D.top_bx.map(r=>r.label),
+      datasets:[{label:'Salidas',data:D.top_bx.map(r=>r.salidas),backgroundColor:'#3b82f6aa',borderRadius:3}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:tc},grid:{color:gc}},y:{ticks:{color:'#93c5fd',font:{size:10}},grid:{color:gc}}}}});
+
+  // Top 10 CL
+  mk('chTopCL',{type:'bar',
+    data:{labels:D.top_cl.map(r=>r.label),
+      datasets:[{label:'Salidas',data:D.top_cl.map(r=>r.salidas),backgroundColor:'#10b981aa',borderRadius:3}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:tc},grid:{color:gc}},y:{ticks:{color:'#6ee7b7',font:{size:10}},grid:{color:gc}}}}});
+}
+
+// ══════════════════════════════════ POR ALMACÉN ════════════════════════════
+function buildPorAlm(){
+  const mc=D.movs_chart;
+  const alms=mc.almacenes;
+
+  // Populate almacen select
+  const sel=document.getElementById('movsAlmSel');
+  alms.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;sel.appendChild(o);});
+
+  // Set date defaults
+  const fechas=mc.fechas;
+  document.getElementById('dDesde').value=fechas[0]||'';
+  document.getElementById('dHasta').value=fechas[fechas.length-1]||'';
+
+  renderMovsLine(alms,fechas,mc.data);
+
+  // Inv por almacén (mismo de resumen)
+  const almsMrp=Object.keys(D.inv_por_alm).sort();
+  mk('chInvAlm2',{type:'bar',
+    data:{labels:almsMrp,
+      datasets:[{label:'Inv General',data:almsMrp.map(a=>D.inv_por_alm[a]),
+        backgroundColor:almsMrp.map(a=>almColor(a)+'aa'),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:tc},grid:{color:gc}},y:{ticks:{color:tc,callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':v},grid:{color:gc}}}}});
+
+  // Decisiones por almacen
+  const almsD=Object.keys(D.alm_stats).sort();
+  mk('chDecAlm',{type:'bar',
+    data:{labels:almsD,
+      datasets:[
+        {label:'Corto',data:almsD.map(a=>D.alm_stats[a].corto),backgroundColor:'#f8717188'},
+        {label:'GLM',data:almsD.map(a=>D.alm_stats[a].glm),backgroundColor:'#fbbf2488'},
+        {label:'Cubierto',data:almsD.map(a=>D.alm_stats[a].cubierto),backgroundColor:'#34d39988'},
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}}},
+      scales:{x:{stacked:true,ticks:{color:tc},grid:{color:gc}},y:{stacked:true,ticks:{color:tc},grid:{color:gc}}}}});
+}
+
+function applyMovsFilter(){
+  const mc=D.movs_chart;
+  const desde=document.getElementById('dDesde').value;
+  const hasta=document.getElementById('dHasta').value;
+  const almFil=document.getElementById('movsAlmSel').value;
+  const fechas=mc.fechas.filter(f=>(!desde||f>=desde)&&(!hasta||f<=hasta));
+  const alms=almFil?[almFil]:mc.almacenes;
+  renderMovsLine(alms,fechas,mc.data);
+}
+function resetMovsFilter(){
+  const mc=D.movs_chart;
+  document.getElementById('dDesde').value=mc.fechas[0]||'';
+  document.getElementById('dHasta').value=mc.fechas[mc.fechas.length-1]||'';
+  document.getElementById('movsAlmSel').value='';
+  renderMovsLine(mc.almacenes,mc.fechas,mc.data);
+}
+function renderMovsLine(alms,fechas,data){
+  mk('chMovsLine',{type:'line',
+    data:{labels:fechas,
+      datasets:alms.map(a=>({
+        label:a,
+        data:fechas.map(f=>{const idx=D.movs_chart.fechas.indexOf(f);return idx>=0?(data[a]||[])[idx]||0:0}),
+        borderColor:almColor(a),backgroundColor:almColor(a)+'22',
+        pointRadius:4,pointHoverRadius:6,tension:.3,borderWidth:2}))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#94a3b8',font:{size:10},boxWidth:12}}},
+      scales:{x:{ticks:{color:tc},grid:{color:gc}},
+        y:{ticks:{color:tc,callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':v},grid:{color:gc}}}}});
+}
+
+// ══════════════════════════════════ TABLA MRP ═════════════════════════════
+let tblSort={col:'',asc:true};
+
+function buildTabla(){
+  const alms=[...new Set(D.wk12.map(r=>r.Almacen).filter(Boolean))].sort();
+  const sel=document.getElementById('fAlm');
+  alms.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;sel.appendChild(o);});
+
+  // Sort on double click header
+  document.querySelectorAll('#mrpTbl thead th').forEach(th=>{
+    th.addEventListener('dblclick',()=>{
+      const col=th.dataset.col;
+      if(tblSort.col===col)tblSort.asc=!tblSort.asc;
+      else{tblSort.col=col;tblSort.asc=true;}
+      document.querySelectorAll('#mrpTbl thead th').forEach(t=>{t.classList.remove('sorted-asc','sorted-desc');});
+      th.classList.add(tblSort.asc?'sorted-asc':'sorted-desc');
+      renderTabla();
+    });
+  });
+
+  ['srch','fAlm','fDecExt','fTipo'].forEach(id=>
+    document.getElementById(id).addEventListener(id==='srch'?'input':'change',renderTabla));
+  renderTabla();
+}
+
+function getTablaData(){
+  const q=document.getElementById('srch').value.toLowerCase();
+  const fa=document.getElementById('fAlm').value;
+  const fe=document.getElementById('fDecExt').value;
+  const ft=document.getElementById('fTipo').value;
+  let data=D.wk12.filter(r=>{
+    if(fa&&r.Almacen!==fa)return false;
+    if(fe&&r['Decision Externa']!==fe)return false;
+    if(ft&&!(r.Codigo||'').startsWith(ft))return false;
+    if(q){const h=[r.Concat,r.Codigo,r.Descripcion,r.Almacen,r['Decision Externa']].filter(Boolean).join(' ').toLowerCase();if(!h.includes(q))return false;}
+    return true;
+  });
+  if(tblSort.col){
+    data=[...data].sort((a,b)=>{
+      let va=a[tblSort.col],vb=b[tblSort.col];
+      if(va==null)va=tblSort.asc?Infinity:-Infinity;
+      if(vb==null)vb=tblSort.asc?Infinity:-Infinity;
+      return typeof va==='string'?(tblSort.asc?va.localeCompare(vb):vb.localeCompare(va)):(tblSort.asc?va-vb:vb-va);
+    });
+  }
+  return data;
+}
+
+function renderTabla(){
+  const data=getTablaData();
+  document.getElementById('tblCount').textContent=data.length;
+  document.getElementById('tBody').innerHTML=data.map(r=>{
+    const rc=r['Decision Externa']==='Corto'?'r-corto':r['Decision Externa']==='GLM'?'r-glm':'';
+    return`<tr class="${rc}">
+      <td style="color:#64748b;font-size:.7rem">${r.Concat||'–'}</td>
+      <td>${codBadge(r.Codigo)}</td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;color:#94a3b8">${r.Descripcion||'–'}</td>
+      <td><span class="alm">${r.Almacen||'–'}</span></td>
+      ${nr(r['Qty 1.5wk'])}${nr(r['Salidas'])}${nr(r['Delta'])}
+      ${nr(r['Inv General'])}${nr(r['Delta2'])}
+      ${nr(r['% Salidas'],true)}${nr(r['% Inv Actual'],true)}
+      ${nr(r['Qty Req GLM'])}${nr(r['Inv Nacional'])}${nr(r['Six General'])}
+      <td style="text-align:right;color:${(r['Sems Inv']||0)<1.5?'#f87171':(r['Sems Inv']||0)<2.5?'#fbbf24':'#34d399'}">${fdec(r['Sems Inv'])}</td>
+      <td style="text-align:right">${fdec(r['Pallets'])}</td>
+      ${nr(r['Qty Tarimas'])}${nr(r['Inv GLM'])}
+      <td>${decInt(r['Decision Interna'])}</td>
+      <td>${decExt(r['Decision Externa'])}</td>
+    </tr>`;
+  }).join('');
+}
+
+function resetTabla(){
+  document.getElementById('srch').value='';
+  document.getElementById('fAlm').value='';
+  document.getElementById('fDecExt').value='';
+  document.getElementById('fTipo').value='';
+  tblSort={col:'',asc:true};
+  document.querySelectorAll('#mrpTbl thead th').forEach(t=>t.classList.remove('sorted-asc','sorted-desc'));
+  renderTabla();
+}
+
+function dlTabla(){
+  const data=getTablaData();
+  const hdrs=['Concat','Codigo','Descripcion','Almacen','Qty 1.5wk','Salidas','Delta',
+    'Inv General','Delta2','% Salidas','% Inv Actual','Qty Req GLM','Inv Nacional',
+    'Six General','Sems Inv','Pallets','Qty Tarimas','Inv GLM','Decision Interna','Decision Externa'];
+  const wb2=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb2,XLSX.utils.aoa_to_sheet([hdrs,...data.map(r=>hdrs.map(h=>r[h]??''))]),'MRP_'+D.wk);
+  XLSX.writeFile(wb2,'BP_MRP_'+D.wk+'.xlsx');
+}
+
+// ══════════════════════════════════ DEMANDA ═══════════════════════════════
+function buildDemanda(){
+  const wks=D.wks_disponibles;
+  ['demWkBar','demWkFrom','demWkTo'].forEach(id=>{
+    const sel=document.getElementById(id);
+    wks.forEach(w=>{const o=document.createElement('option');o.value=w;o.textContent=w;sel.appendChild(o);});
+  });
+  // Defaults
+  document.getElementById('demWkBar').value=wks[wks.length-1]||'';
+  document.getElementById('demWkFrom').value=wks[wks.length-2]||wks[0]||'';
+  document.getElementById('demWkTo').value=wks[wks.length-1]||'';
+  updateDemanda();
+}
+
+const ALMS_MRP=Object.keys(D.alm_stats).sort();
+function updateDemanda(){
+  const wkBar=document.getElementById('demWkBar').value;
+  const wkFrom=document.getElementById('demWkFrom').value;
+  const wkTo=document.getElementById('demWkTo').value;
+  const wks=D.wks_disponibles;
+
+  document.getElementById('demBarLabel').textContent=wkBar;
+
+  // Bar: salidas por almacen para wkBar
+  const barData=ALMS_MRP.map(a=>(D.wk_salidas[wkBar]||{})[a]||0);
+  mk('chDemBar',{type:'bar',
+    data:{labels:ALMS_MRP,
+      datasets:[{label:'Salidas',data:barData,backgroundColor:ALMS_MRP.map(a=>almColor(a)+'cc'),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:tc},grid:{color:gc}},
+        y:{ticks:{color:tc,callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':v},grid:{color:gc}}}}});
+
+  // Line: tendencia total por semana
+  const rangeWks=wks.filter(w=>w>=wkFrom&&w<=wkTo);
+  document.getElementById('demLineLabel').textContent=wkFrom+' – '+wkTo;
+  const totalByWk=rangeWks.map(w=>ALMS_MRP.reduce((s,a)=>s+((D.wk_salidas[w]||{})[a]||0),0));
+  mk('chDemLine',{type:'line',
+    data:{labels:rangeWks,
+      datasets:[{label:'Total Salidas',data:totalByWk,
+        borderColor:'#60a5fa',backgroundColor:'#60a5fa22',
+        pointRadius:5,pointHoverRadius:8,tension:.3,borderWidth:2,fill:true}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:tc},grid:{color:gc}},
+        y:{ticks:{color:tc,callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':v},grid:{color:gc}}}}});
+
+  // Stacked: por almacen x semana
+  mk('chDemStack',{type:'bar',
+    data:{labels:rangeWks,
+      datasets:ALMS_MRP.map(a=>({
+        label:a,
+        data:rangeWks.map(w=>(D.wk_salidas[w]||{})[a]||0),
+        backgroundColor:almColor(a)+'99'}))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#94a3b8',font:{size:10},boxWidth:12}}},
+      scales:{x:{stacked:true,ticks:{color:tc},grid:{color:gc}},
+        y:{stacked:true,ticks:{color:tc,callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':v},grid:{color:gc}}}}});
+}
+
+// ══════════════════════════════════ GLM ══════════════════════════════════
+// Fuente: SKUs con Decision Externa = GLM del WK12 + edits de Datos_MRP_BP.xlsx
+let glmSort={col:'',asc:true};
+function buildGlm(){
+  // Stats
+  const t=D.glm.length;
+  const oc=D.glm.filter(r=>r.OC&&r.OC!=='—').length;
+  const folio=D.glm.filter(r=>r['Folio SAP']&&r['Folio SAP']!=='—').length;
+  const ecarga=D.glm.filter(r=>r['Estatus Carga']&&r['Estatus Carga']!=='—').length;
+  document.getElementById('glmStats').innerHTML=`
+    <div class="stat"><div class="stat-val" style="color:#fbbf24">${t}</div><div class="stat-lbl">Total GLM</div></div>
+    <div class="stat"><div class="stat-val" style="color:#60a5fa">${oc}</div><div class="stat-lbl">Con OC</div></div>
+    <div class="stat"><div class="stat-val" style="color:#a78bfa">${folio}</div><div class="stat-lbl">Con Folio SAP</div></div>
+    <div class="stat"><div class="stat-val" style="color:#34d399">${ecarga}</div><div class="stat-lbl">Con Estatus Carga</div></div>`;
+
+  const alms=[...new Set(D.glm.map(r=>r.Almacen).filter(Boolean))].sort();
+  const sel=document.getElementById('glmAlm');
+  alms.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;sel.appendChild(o);});
+
+  document.querySelectorAll('#glmTbl thead th').forEach(th=>{
+    th.addEventListener('dblclick',()=>{
+      const col=th.dataset.col;
+      if(glmSort.col===col)glmSort.asc=!glmSort.asc; else{glmSort.col=col;glmSort.asc=true;}
+      document.querySelectorAll('#glmTbl thead th').forEach(t=>t.classList.remove('sorted-asc','sorted-desc'));
+      th.classList.add(glmSort.asc?'sorted-asc':'sorted-desc');
+      renderGlm();
+    });
+  });
+  ['glmSrch','glmAlm'].forEach(id=>document.getElementById(id).addEventListener(id==='glmSrch'?'input':'change',renderGlm));
+  renderGlm();
+}
+
+function getGlmData(){
+  const q=document.getElementById('glmSrch').value.toLowerCase();
+  const alm=document.getElementById('glmAlm').value;
+  let data=D.glm.filter(r=>{
+    if(alm&&r.Almacen!==alm)return false;
+    if(q){const h=[r.Codigo,r.Concat,r.Descripcion,r.Almacen].filter(Boolean).join(' ').toLowerCase();if(!h.includes(q))return false;}
+    return true;
+  });
+  if(glmSort.col){
+    data=[...data].sort((a,b)=>{
+      let va=a[glmSort.col],vb=b[glmSort.col];
+      if(va==null)va=glmSort.asc?'zzz':'';
+      if(vb==null)vb=glmSort.asc?'zzz':'';
+      return typeof va==='string'?(glmSort.asc?va.localeCompare(vb):vb.localeCompare(va)):(glmSort.asc?va-vb:vb-va);
+    });
+  }
+  return data;
+}
+
+function renderGlm(){
+  const data=getGlmData();
+  document.getElementById('glmCount').textContent=data.length;
+  document.getElementById('glmBody').innerHTML=data.map(r=>`<tr>
+    <td>${codBadge(r.Codigo)}</td>
+    <td style="color:#64748b;font-size:.7rem">${r.Concat||'–'}</td>
+    <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;color:#94a3b8">${r.Descripcion||'–'}</td>
+    <td><span class="alm">${r.Almacen||'–'}</span></td>
+    <td style="text-align:right">${fnum(r['Inv General'])}</td>
+    <td style="text-align:right;color:#fbbf24">${fnum(r['Qty Req GLM'])}</td>
+    <td style="text-align:right;color:${(r['Sems Inv']||0)<1.5?'#f87171':'#fbbf24'}">${fdec(r['Sems Inv'])}</td>
+    <td style="text-align:right">${fnum(r['Qty 1.5wk'])}</td>
+    <td style="text-align:right;color:${(r['Delta2']||0)>=0?'#34d399':'#f87171'}">${fnum(r['Delta2'])}</td>
+    <td style="text-align:right;color:#94a3b8">${r['% Inv Actual']!=null?fdec(r['% Inv Actual'])+'%':'–'}</td>
+    <td style="color:${(!r.OC||r.OC==='—')?'#334155':'#60a5fa'}">${r.OC||'—'}</td>
+    <td style="color:${(!r['Folio SAP']||r['Folio SAP']==='—')?'#334155':'#a78bfa'}">${r['Folio SAP']||'—'}</td>
+    <td>${(!r['Estatus Carga']||r['Estatus Carga']==='—')?'<span style="color:#334155">—</span>':r['Estatus Carga']}</td>
+    <td style="color:#64748b">${r['Dia Carga']||'—'}</td>
+    <td>${(!r['Estatus Almacen']||r['Estatus Almacen']==='—')?'<span style="color:#334155">—</span>':r['Estatus Almacen']}</td>
+  </tr>`).join('');
+}
+
+function resetGlm(){
+  document.getElementById('glmSrch').value='';
+  document.getElementById('glmAlm').value='';
+  glmSort={col:'',asc:true};
+  document.querySelectorAll('#glmTbl thead th').forEach(t=>t.classList.remove('sorted-asc','sorted-desc'));
+  renderGlm();
+}
+
+function dlGlm(){
+  const data=getGlmData();
+  const hdrs=['Codigo','Concat','Descripcion','Almacen','Inv General','Qty Req GLM','Sems Inv','Qty 1.5wk','Delta2','% Inv Actual','OC','Folio SAP','Estatus Carga','Dia Carga','Estatus Almacen'];
+  const wb2=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb2,XLSX.utils.aoa_to_sheet([hdrs,...data.map(r=>hdrs.map(h=>r[h]??''))]),'GLM_'+D.wk);
+  XLSX.writeFile(wb2,'BP_GLM_'+D.wk+'.xlsx');
+}
+
+// ══════════════════════════════════ TRASLADOS ═════════════════════════════
+let trasSort={col:'',asc:true};
+function buildTraslados(){
+  const t=D.traslados.length;
+  const pend=D.traslados.filter(r=>!r.Estatus||r.Estatus==='Pendiente').length;
+  const proc=D.traslados.filter(r=>r.Estatus==='En proceso').length;
+  const comp=D.traslados.filter(r=>r.Estatus==='Completado').length;
+  document.getElementById('trasladosStats').innerHTML=`
+    <div class="stat"><div class="stat-val" style="color:#a78bfa">${t}</div><div class="stat-lbl">Total Traslados</div></div>
+    <div class="stat"><div class="stat-val" style="color:#64748b">${pend}</div><div class="stat-lbl">Pendiente</div></div>
+    <div class="stat"><div class="stat-val" style="color:#60a5fa">${proc}</div><div class="stat-lbl">En Proceso</div></div>
+    <div class="stat"><div class="stat-val" style="color:#34d399">${comp}</div><div class="stat-lbl">Completado</div></div>`;
+
+  const alms=[...new Set(D.traslados.map(r=>r.Almacen).filter(Boolean))].sort();
+  const sel=document.getElementById('trasAlm');
+  alms.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;sel.appendChild(o);});
+
+  document.querySelectorAll('#trasTbl thead th').forEach(th=>{
+    th.addEventListener('dblclick',()=>{
+      const col=th.dataset.col;
+      if(trasSort.col===col)trasSort.asc=!trasSort.asc; else{trasSort.col=col;trasSort.asc=true;}
+      document.querySelectorAll('#trasTbl thead th').forEach(t=>t.classList.remove('sorted-asc','sorted-desc'));
+      th.classList.add(trasSort.asc?'sorted-asc':'sorted-desc');
+      renderTraslados();
+    });
+  });
+  ['trasSrch','trasAlm','trasEst'].forEach(id=>
+    document.getElementById(id).addEventListener(id==='trasSrch'?'input':'change',renderTraslados));
+  renderTraslados();
+}
+
+function getTrasData(){
+  const q=document.getElementById('trasSrch').value.toLowerCase();
+  const alm=document.getElementById('trasAlm').value;
+  const est=document.getElementById('trasEst').value;
+  let data=D.traslados.filter(r=>{
+    if(alm&&r.Almacen!==alm)return false;
+    if(est&&(r.Estatus||'Pendiente')!==est)return false;
+    if(q){const h=[r.Codigo,r.Concat,r.Descripcion,r.Almacen,r['Almacen Fuente']].filter(Boolean).join(' ').toLowerCase();if(!h.includes(q))return false;}
+    return true;
+  });
+  if(trasSort.col){
+    data=[...data].sort((a,b)=>{
+      let va=a[trasSort.col],vb=b[trasSort.col];
+      if(va==null)va=trasSort.asc?'zzz':'';
+      if(vb==null)vb=trasSort.asc?'zzz':'';
+      return typeof va==='string'?(trasSort.asc?va.localeCompare(vb):vb.localeCompare(va)):(trasSort.asc?va-vb:vb-va);
+    });
+  }
+  return data;
+}
+
+function renderTraslados(){
+  const data=getTrasData();
+  document.getElementById('trasCount').textContent=data.length;
+  document.getElementById('trasBody').innerHTML=data.map(r=>`<tr class="r-traslado">
+    <td>${codBadge(r.Codigo)}</td>
+    <td style="color:#64748b;font-size:.7rem">${r.Concat||'–'}</td>
+    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;color:#94a3b8">${r.Descripcion||'–'}</td>
+    <td><span class="alm">${r.Almacen||'–'}</span></td>
+    <td style="text-align:right">${fnum(r['Inv General'])}</td>
+    <td style="text-align:right">${fnum(r['Inv Nacional'])}</td>
+    <td style="text-align:right;color:${(r['Sems Inv']||0)<1.5?'#f87171':'#fbbf24'}">${fdec(r['Sems Inv'])}</td>
+    <td style="text-align:right">${fnum(r['Qty 1.5wk'])}</td>
+    <td style="text-align:right;color:${(r['Delta2']||0)>=0?'#34d399':'#f87171'}">${fnum(r['Delta2'])}</td>
+    <td style="text-align:right;color:#94a3b8">${r['% Inv Actual']!=null?fdec(r['% Inv Actual'])+'%':'–'}</td>
+    <td>${decExt(r['Decision Externa'])}</td>
+    <td style="color:${r['Almacen Fuente']?'#a78bfa':'#334155'};font-weight:${r['Almacen Fuente']?'700':'400'}">${r['Almacen Fuente']||'—'}</td>
+    <td>${trasEstBadge(r.Estatus||'Pendiente')}</td>
+    <td style="color:#64748b;font-size:.7rem">${r.Comentarios||''}</td>
+  </tr>`).join('');
+}
+
+function trasEstBadge(e){
+  const m={'Pendiente':'b-singest','En proceso':'b-transito','Completado':'b-recibido'};
+  return`<span class="${m[e]||'b-singest'}">${e}</span>`;
+}
+
+function resetTraslados(){
+  document.getElementById('trasSrch').value='';
+  document.getElementById('trasAlm').value='';
+  document.getElementById('trasEst').value='';
+  trasSort={col:'',asc:true};
+  document.querySelectorAll('#trasTbl thead th').forEach(t=>t.classList.remove('sorted-asc','sorted-desc'));
+  renderTraslados();
+}
+
+function dlTraslados(){
+  const data=getTrasData();
+  const hdrs=['Concat','Codigo','Descripcion','Almacen','Inv General','Inv Nacional','Sems Inv','Qty 1.5wk','Delta2','% Inv Actual','Decision Externa','Almacen Fuente','Estatus','Comentarios'];
+  const wb2=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb2,XLSX.utils.aoa_to_sheet([hdrs,...data.map(r=>hdrs.map(h=>r[h]??''))]),'Traslados_'+D.wk);
+  XLSX.writeFile(wb2,'BP_Traslados_'+D.wk+'.xlsx');
+}
+
+// ══════════════════════════════════ COMPRAS ═══════════════════════════════
+let compraSort={col:'',asc:true};
+function buildCompras(){
+  // KPI stats
+  const total=D.compras.length;
+  const sinGest=D.compras.filter(r=>r.Estatus==='Sin gestión'||!r.Estatus).length;
+  const transito=D.compras.filter(r=>r.Estatus==='En tránsito').length;
+  const recibido=D.compras.filter(r=>r.Estatus==='Recibido').length;
+  document.getElementById('comprasStats').innerHTML=`
+    <div class="stat"><div class="stat-val" style="color:#f87171">${total}</div><div class="stat-lbl">Total Cortos</div></div>
+    <div class="stat"><div class="stat-val" style="color:#64748b">${sinGest}</div><div class="stat-lbl">Sin Gestión</div></div>
+    <div class="stat"><div class="stat-val" style="color:#60a5fa">${transito}</div><div class="stat-lbl">En Tránsito</div></div>
+    <div class="stat"><div class="stat-val" style="color:#34d399">${recibido}</div><div class="stat-lbl">Recibidos</div></div>`;
+
+  const alms=[...new Set(D.compras.map(r=>r.Almacen).filter(Boolean))].sort();
+  const sel=document.getElementById('compraAlm');
+  alms.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;sel.appendChild(o);});
+
+  document.querySelectorAll('#compraTbl thead th').forEach(th=>{
+    th.addEventListener('dblclick',()=>{
+      const col=th.dataset.col;
+      if(compraSort.col===col)compraSort.asc=!compraSort.asc; else{compraSort.col=col;compraSort.asc=true;}
+      document.querySelectorAll('#compraTbl thead th').forEach(t=>t.classList.remove('sorted-asc','sorted-desc'));
+      th.classList.add(compraSort.asc?'sorted-asc':'sorted-desc');
+      renderCompras();
+    });
+  });
+  ['compraSrch','compraAlm','compraEst'].forEach(id=>
+    document.getElementById(id).addEventListener(id==='compraSrch'?'input':'change',renderCompras));
+  renderCompras();
+}
+
+function getComprasData(){
+  const q=document.getElementById('compraSrch').value.toLowerCase();
+  const alm=document.getElementById('compraAlm').value;
+  const est=document.getElementById('compraEst').value;
+  let data=D.compras.filter(r=>{
+    if(alm&&r.Almacen!==alm)return false;
+    if(est&&(r.Estatus||'Sin gestión')!==est)return false;
+    if(q){const h=[r.Codigo,r.Descripcion,r.Almacen,r.Estatus].filter(Boolean).join(' ').toLowerCase();if(!h.includes(q))return false;}
+    return true;
+  });
+  if(compraSort.col){
+    data=[...data].sort((a,b)=>{
+      let va=a[compraSort.col],vb=b[compraSort.col];
+      if(va==null)va=compraSort.asc?'zzz':'';
+      if(vb==null)vb=compraSort.asc?'zzz':'';
+      return typeof va==='string'?(compraSort.asc?va.localeCompare(vb):vb.localeCompare(va)):(compraSort.asc?va-vb:vb-va);
+    });
+  }
+  return data;
+}
+
+function renderCompras(){
+  const data=getComprasData();
+  document.getElementById('compraCount').textContent=data.length;
+  document.getElementById('compraBody').innerHTML=data.map(r=>`<tr>
+    <td>${codBadge(r.Codigo)}</td>
+    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;color:#94a3b8">${r.Descripcion||'–'}</td>
+    <td><span class="alm">${r.Almacen||'–'}</span></td>
+    <td style="text-align:right">${fnum(r['Inv General'])}</td>
+    <td style="text-align:right;color:${(r['Sems Inv']||0)<1.5?'#f87171':'#fbbf24'}">${fdec(r['Sems Inv'])}</td>
+    <td style="text-align:right">${fnum(r['Qty 1.5wk'])}</td>
+    <td style="color:${r['Fecha Llegada']?'#fbbf24':'#334155'}">${r['Fecha Llegada']||'—'}</td>
+    <td>${estStatus(r.Estatus||'Sin gestión')}</td>
+    <td style="color:#64748b;font-size:.7rem">${r.Comentarios||''}</td>
+  </tr>`).join('');
+}
+
+function resetCompras(){
+  document.getElementById('compraSrch').value='';
+  document.getElementById('compraAlm').value='';
+  document.getElementById('compraEst').value='';
+  compraSort={col:'',asc:true};
+  document.querySelectorAll('#compraTbl thead th').forEach(t=>t.classList.remove('sorted-asc','sorted-desc'));
+  renderCompras();
+}
+
+function dlCompras(){
+  const data=getComprasData();
+  const hdrs=['Concat','Codigo','Descripcion','Almacen','Inv General','Sems Inv','Qty 1.5wk','Fecha Llegada','Estatus','Comentarios'];
+  const wb2=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb2,XLSX.utils.aoa_to_sheet([hdrs,...data.map(r=>hdrs.map(h=>r[h]??''))]),'Compras_'+D.wk);
+  XLSX.writeFile(wb2,'BP_Compras_'+D.wk+'.xlsx');
+}
+
+// ── AUTO-INIT resumen ─────────────────────────────────────────────────────
+tabInit['resumen']=true;
+buildResumen();
+</script>
+</body>
+</html>
